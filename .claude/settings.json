@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='route';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','route.mjs')))\"" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='guard';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','guard.mjs')))\"" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='log';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','log.mjs')))\"" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='stop-gate';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','stop-gate.mjs')))\"" }] }
+    ]
+  }
+}

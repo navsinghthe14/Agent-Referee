@@ -1,0 +1,27 @@
+name: referee
+on: [pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # turbo --affected needs the base branch history
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Kit self-test (guard, router, audit)
+        run: node .referee/scripts/selftest.mjs
+      - name: Router picks the right skill
+        run: node .referee/scripts/eval-triggers.mjs
+      - name: Install dependencies
+        run: |
+          if [ ! -f package.json ]; then echo "No package.json; skipping install"; exit 0; fi
+          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable || yarn install --frozen-lockfile
+          elif [ -f package-lock.json ]; then npm ci
+          else npm install; fi
+      - name: Repo verify command
+        env:
+          TURBO_SCM_BASE: origin/${{ github.base_ref }}
+        run: |
+          V=$(node -e "const c=require('./.referee/config.json');console.log(c.verifyFull||c.verify||'')")
+          if [ -n "$V" ]; then bash -c "$V"; else echo "No verify command set in .referee/config.json"; fi

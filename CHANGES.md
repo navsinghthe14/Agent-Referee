@@ -1,0 +1,25 @@
+# Patch notes — 2026-11-01
+
+Every fix has a regression test in `.referee/scripts/selftest.mjs` (37 checks; the unpatched kit fails 19 of the original 35). CI runs it on every PR.
+
+| # | Bug | Fix | File |
+|---|---|---|---|
+| 1 | Protected globs ending in `**` matched nothing, so `**/migrations/**` and `.referee/scripts/**` were unprotected | Rewrote `globToRegex`; trailing `**` now means "anything below" | `lib.mjs` |
+| 2 | The guard ignored Bash, so `echo >> .env`, `sed -i` on a migration or `rm` of a hook all passed | Bash commands that write (`>`, `tee`, `sed -i`, `rm`, `mv`, `cp`, `writeFile`, PowerShell writes…) and name a protected path are blocked | `guard.mjs` |
+| 3 | The agent could grant itself full send with `touch .referee/state/full-send` | Any shell command mentioning `.referee/state` is blocked; `.referee/state/**` and `.referee/config.json` are protected | `guard.mjs`, `config.json` |
+| 4 | `gh api …/merge` merged without full send | Blocked unless full send | `guard.mjs` |
+| 5 | The push check used `\bmain\b`, so it blocked `fix-main-nav` but missed a bare `git push` while on main | Parses refspecs: blocks `main`, `HEAD:main`, `refs/heads/main`, `+main`, `--all`, `--mirror`, and a bare push from main | `guard.mjs` |
+| 6 | "don't full send" or a quoted "full send" switched full send on | Negated and quoted mentions are ignored | `route.mjs` |
+| 7 | The router fired on everyday product words: "machine learning", "decision", "baseline", "end-to-end", "onboard", "keeps returning" | Patterns now match the method's own phrases only; 11 new eval cases, including 8 that must route nowhere | `routing.json`, `evals/triggers.json` |
+| 8 | A skill named on prompt 3 was checked against edits from prompt 1, so clean sessions failed | Each routed prompt is graded within its own turn | `audit.mjs` |
+| 9 | `requires_before` and the merge rule only checked the first occurrence, so a second PR or a second merge was never graded | Every occurrence is checked | `audit.mjs` |
+| 10 | The stop gate ran the full verify at the end of every turn whenever the tree was dirty, including chat-only turns. It also gave up after one block (`stop_hook_active`), so "can't stop" wasn't true | The route hook snapshots the tree; verify runs only if this turn changed something. It blocks up to `stopGateMaxBlocks` (default 3), then stops and reports | `stop-gate.mjs`, `route.mjs`, `lib.mjs` |
+| 11 | No monorepo support: the full lint and test suite ran across every package | With `turbo.json`, the installer sets `verify` to `<pm> turbo run <tasks> --affected` | `install.sh` |
+| 12 | CI only ran `npm ci`, which fails in pnpm repos; `--affected` had no git history to compare against | CI installs with pnpm, yarn or npm by lockfile, uses `fetch-depth: 0` and sets `TURBO_SCM_BASE` | `agent-referee.yml` |
+| 13 | Hook commands used bash-only `${CLAUDE_PROJECT_DIR:-.}` and could fail on Windows | The hooks are launched through Node (`node -e … import(…)`), which works the same in bash, cmd and PowerShell | `.claude/settings.json` |
+| 14 | Re-installing with new hook commands would duplicate the hooks | The installer replaces older entries (including the original agent-method kit) for the same hook. `--upgrade` also refreshes `.referee/scripts/` | `install.sh` |
+
+## Still true
+- The guard catches mistakes and casual workarounds. It is not a sandbox: an obfuscated command (base64, a script file written elsewhere and then run) can still get past it. Treat the session audit and PR review as the backstop.
+- `--upgrade` never overwrites your `config.json`, `routing.json`, `session-rules.json`, evals or skills. If you installed the old kit, copy fixes 3 and 7 over by hand: the new `protectedPaths` entries and the new routing patterns and eval cases.
+- `turbo --affected` needs Turborepo 2.1 or later. On older versions, use `--filter=...[origin/main]` instead.

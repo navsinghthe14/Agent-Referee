@@ -1,0 +1,25 @@
+{
+  "mainBranch": "main",
+  "verify": "",
+  "verifyFull": "",
+  "protectedPaths": [
+    ".env",
+    ".env.*",
+    "**/.env",
+    "**/.env.*",
+    "**/migrations/**",
+    ".referee/scripts/**",
+    ".referee/state/**",
+    ".referee/config.json",
+    ".claude/settings.json"
+  ],
+  "reviewer": {
+    "kind": "subagent",
+    "agent": "independent-reviewer",
+    "cli": "",
+    "note": "Set kind to \"cli\" and cli to a command that reads a prompt on stdin to review with another model family (for example a Codex or Gemini CLI)."
+  },
+  "maxReviewRounds": 3,
+  "fullSendHours": 6,
+  "stopGateMaxBlocks": 3
+}

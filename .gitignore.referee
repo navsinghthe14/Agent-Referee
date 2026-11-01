@@ -1,0 +1,5 @@
+# Agent Referee: local state, logs and audits (per machine, not shared)
+.referee/state/
+.referee/reports/
+.referee/logs/
+.referee/audits/

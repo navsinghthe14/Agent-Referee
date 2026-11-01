@@ -1,0 +1,65 @@
+{
+  "note": "Graded at the end of every turn by .referee/scripts/audit.mjs. Each rule passes, fails, or is n/a when its trigger never happened. Add a rule for every mistake you never want twice.",
+  "rules": [
+    {
+      "id": "routed-skill-loaded",
+      "type": "routed_skill_before_edit",
+      "why": "If the router named a skill for the request, the agent loaded it before its first file edit in that turn."
+    },
+    {
+      "id": "pr-uses-file-pr",
+      "type": "requires_before",
+      "when": { "tool": "Bash", "match": "gh pr create" },
+      "require": [{ "tool": "Skill", "skill": "file-pr" }],
+      "why": "PRs follow the repo's title and description rules."
+    },
+    {
+      "id": "review-before-pr",
+      "type": "requires_before",
+      "when": { "tool": "Bash", "match": "gh pr create" },
+      "require": [{ "tool": "Skill", "skill": "review-loop" }, { "reviewer": true }],
+      "why": "The configured independent reviewer ran before the PR was opened."
+    },
+    {
+      "id": "verify-before-pr",
+      "type": "requires_before",
+      "when": { "tool": "Bash", "match": "gh pr create" },
+      "require": [{ "tool": "Skill", "skill": "verification-before-completion" }],
+      "why": "The agent ran the proving checks, with evidence, before opening a PR."
+    },
+    {
+      "id": "review-feedback-handled",
+      "type": "requires_before",
+      "when": { "tool": "Skill", "skill": "review-loop" },
+      "require": [{ "tool": "Skill", "skill": "receiving-code-review" }],
+      "after": true,
+      "why": "Review findings were verified and triaged, not applied blindly."
+    },
+    {
+      "id": "ship-checked-status",
+      "type": "requires_before",
+      "when": { "tool": "Skill", "skill": "ship" },
+      "require": [{ "tool": "Bash", "match": "method.mjs status" }],
+      "after": true,
+      "why": "When ship ran, the agent computed readiness instead of claiming it."
+    },
+    {
+      "id": "no-merge-without-full-send",
+      "type": "forbid_unless_full_send",
+      "when": { "tool": "Bash", "match": "gh pr merge" },
+      "why": "Merging is the human's call unless they said \"full send\"."
+    },
+    {
+      "id": "no-hook-bypass",
+      "type": "forbid",
+      "when": { "tool": "Bash", "match": "--no-verify" },
+      "why": "Skipping git hooks skips the repo's own checks."
+    },
+    {
+      "id": "no-blocked-retries",
+      "type": "max_blocked",
+      "max": 2,
+      "why": "An agent that keeps hitting the guard is working around a rule instead of fixing the cause."
+    }
+  ]
+}

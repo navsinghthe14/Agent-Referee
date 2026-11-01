@@ -1,0 +1,15 @@
+{
+  "note": "Read by .referee/scripts/hooks/route.mjs on every prompt. First match wins, so specific routes come before general ones. Patterns name the method's own phrases, not everyday product words (\"machine learning\", \"onboarding flow\", \"end-to-end tests\", \"baseline score\" must route nowhere). Test: node .referee/scripts/eval-triggers.mjs",
+  "routes": [
+    { "skill": "agent-postmortem", "pattern": "\\b(why did (you|it|the agent)|wrong (tool|skill|file|command)|post-?mortem|(you|it|the agent|claude) keeps? (doing|making|using|editing|calling)|went wrong)\\b" },
+    { "skill": "ship", "pattern": "\\bfull (send|stop)\\b|\\b(ship it|take (it|this) end to end|own (it|this) end to end)\\b" },
+    { "skill": "receiving-code-review", "pattern": "\\b((address|respond to|handle|fix|resolve|work through) (the |these |those |my |all )?(review|pr|reviewer'?s?) (comments|feedback|findings|notes)|reviewer (said|says|wants|asked|flagged))\\b" },
+    { "skill": "writing-plans", "pattern": "\\b((write|make|draft|create) (an? |the )?(implementation |build |execution )?plan|plan (this|it) out|implementation plan|break (this|it) (down )?into tasks)\\b" },
+    { "skill": "verification-before-completion", "pattern": "\\b(verify (it|this|that|the fix)|prove (it|this) works|is (it|this) (actually )?(done|fixed|passing|working)|did (it|the tests?) (actually )?pass)\\b" },
+    { "skill": "file-pr", "pattern": "\\b(open|file|create|raise|update|write)\\b.{0,20}\\b(pr|pull request|commit message|branch name)\\b" },
+    { "skill": "review-loop", "pattern": "\\b(review (this|my|the) (change|diff|branch|pr)|second opinion|code review (this|my|the))\\b" },
+    { "skill": "method-upkeep", "pattern": "\\b(skill audit|trigger audit|session audits?|audit (the |this |my )?(last |latest |previous )?(session|chat)s?|audit (the |my )?skills|prune skills|method upkeep|stale (notes|knowledge|kb))\\b" },
+    { "skill": "repo-audit", "pattern": "\\b(audit (the |this )?repo|onboard (an? )?(agent|claude)|dumb[- ]questions?|(trim|audit|clean up|shorten) (our |the |my )?(claude|agents)\\.md|agents keep)\\b" },
+    { "skill": "repo-knowledge", "pattern": "\\b((record|log|write up|document|file) (the |a |this |that |our )?(decision|adr|lesson|learning)s?|\\badr\\b|why did we|lessons? learned|kb/(inbox|learnings|decisions|tasks))\\b" }
+  ]
+}
