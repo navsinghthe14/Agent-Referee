@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Install Agent Referee into a repo. Never overwrites your files; safe to re-run.
 #   bash install.sh /path/to/your-repo
-#   bash install.sh /path/to/your-repo --upgrade   # also replace the kit's own scripts with this version
+#   bash install.sh /path/to/your-repo --upgrade      # also replace the kit's own scripts with this version
+#   bash install.sh /path/to/your-repo --baseline=7   # observe only for 7 days first, to measure your "before"
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 DEST="$(cd "${1:-.}" && pwd)"
-UPGRADE="${2:-}"
+UPGRADE=""; BASELINE=""
+for a in "${@:2}"; do case "$a" in --upgrade) UPGRADE="--upgrade";; --baseline=*) BASELINE="${a#--baseline=}";; esac; done
 [ "$SRC" = "$DEST" ] && { echo "Run this against another repo: bash install.sh /path/to/repo"; exit 1; }
 command -v node >/dev/null || { echo "Node 18+ is required."; exit 1; }
 copied=0; kept=0; upgraded=0
@@ -62,6 +64,13 @@ if(!cfg.verify&&fs.existsSync(d+"/package.json")){
   }
   if(cfg.verify){fs.writeFileSync(cp,JSON.stringify(cfg,null,2)+"\n");console.log("verify     = "+cfg.verify+"\nverifyFull = "+cfg.verifyFull);}}
 if(!cfg.verify)console.log("Set \"verify\" in .referee/config.json (e.g. \"cargo check && cargo test\").");'
+
+# Baseline: observe for N days (nothing blocked), then enforce automatically.
+if [ -n "$BASELINE" ]; then DEST="$DEST" DAYS="$BASELINE" node -e '
+const fs=require("fs"),p=process.env.DEST+"/.referee/config.json",c=JSON.parse(fs.readFileSync(p,"utf8"));
+c.baselineUntil=new Date(Date.now()+Number(process.env.DAYS)*864e5).toISOString();
+fs.writeFileSync(p,JSON.stringify(c,null,2)+"\n");
+console.log("Baseline: observing until "+c.baselineUntil.slice(0,10)+". Nothing is blocked until then; the referee enforces automatically after.");'; fi
 
 GI="$DEST/.gitignore"; touch "$GI"
 while IFS= read -r line; do grep -qxF "$line" "$GI" || echo "$line" >> "$GI"; done < "$SRC/.gitignore.referee"

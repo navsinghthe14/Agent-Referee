@@ -14,7 +14,9 @@ The user should see what the referee found and how it will work **before** you s
    - one sentence on what this repo is, from what you read;
    - one sentence on how the referee will work here.
 4. **Ask once** about anything marked ⚠ that needs their decision, for example: *"`infra/` isn't protected. Should agents be blocked from editing it?"* Make only the changes they agree to, in `.referee/config.json`. That file is protected, so tell them the exact line to add and let them add it, or they can run the change themselves.
-5. **Finish.** Run `node .referee/scripts/scan.mjs --done` so this doesn't run again. Then continue with what the user originally asked for, if anything.
+5. **Offer a baseline.** If `.referee/config.json` has no `baselineUntil`, ask once: *"Want to measure your 'before' first? For a few days the referee only watches: nothing is blocked, and it records what it would have stopped. Then it switches on by itself, and you get a before-and-after report."* If they say yes, tell them to run `bash install.sh . --baseline=7` (or the number of days they choose); you can't change the config yourself. If a baseline is already running, say when it ends.
+6. **Explain the daily summary in one line:** at the first message of each day, they'll see yesterday's summary (what was blocked, what was caught, which process steps slipped). `/referee-today` shows today's so far.
+7. **Finish.** Run `node .referee/scripts/scan.mjs --done` so this doesn't run again. Then continue with what the user originally asked for, if anything.
 
 ## Rules
 - Report only what the scan and your reading found. If something wasn't detected, say "not found". Don't guess.

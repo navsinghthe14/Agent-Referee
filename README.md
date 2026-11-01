@@ -10,7 +10,7 @@ Not with more prompts. With code it can't talk its way past.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Works with Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-orange?style=flat-square)
-![Self-tests](https://img.shields.io/badge/self--tests-44%2F44%20passing-brightgreen?style=flat-square)
+![Self-tests](https://img.shields.io/badge/self--tests-54%2F54%20passing-brightgreen?style=flat-square)
 ![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square)
 ![Windows · macOS · Linux](https://img.shields.io/badge/os-windows%20%C2%B7%20macos%20%C2%B7%20linux-lightgrey?style=flat-square)
 
@@ -27,7 +27,7 @@ Not with more prompts. With code it can't talk its way past.
 | **0 sec** | added to chat-only turns. Checks run only when code changed, and in a monorepo only for the packages you touched |
 | **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
-<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (44 checks) and <code>eval-triggers.mjs</code> (35 cases), which run in CI on every PR. Run them yourself. To see the impact on <b>your</b> team, run <code>node .referee/scripts/method.mjs audits</code> after a week: it shows the pass rate for every rule across your sessions.</sub>
+<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (54 checks) and <code>eval-triggers.mjs</code> (35 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
 
 <div align="center">
 
@@ -155,6 +155,38 @@ Say "why does it keep doing this?" to fix the cause.
 
 > 💡 **The score comes from a log the scripts write, not from what the agent says.** It can't claim it ran the reviewer if it didn't.
 
+### 5. A daily summary of how it helped
+
+At your first message each day, you see yesterday's summary. `/referee-today` shows today's so far:
+
+```
+⚖ Referee — 2026-11-04
+
+Today the referee stopped 3 risky moves and sent the agent back 2 times
+to fix failing checks before it finished.
+
+  Blocked          2× push to main, 1× edit a protected file
+  Process slips    The agent opened a PR without an independent review.
+```
+
+### 6. Your own before and after
+
+Not sure it's worth it? Measure it on your repo first:
+
+```bash
+bash agent-referee/install.sh /path/to/your-repo --baseline=7
+```
+
+For 7 days the referee **only watches**. Nothing is blocked, and it records every risky move it would have stopped. Then it switches on by itself. After a week of each, run `node .referee/scripts/impact.mjs`:
+
+```
+|                                         | Before (observe) | After (enforce) |
+| Turns that ended with your checks failing | 9 of 31 (29%)   | 0 of 28 (0%)    |
+| Risky moves the agent tried              | 4 (none stopped) | 3 (all stopped) |
+```
+
+<sub>Example output, not real data. Yours comes from your own sessions.</sub>
+
 ---
 
 ## 🎮 Two words control it
@@ -199,7 +231,7 @@ Most skill packs are **prompts that hope the model complies.** Agent Referee is 
 | **Blows the whistle** (blocks bad moves) | ✗ | ✓ 4 hooks, in plain Node |
 | **Keeps score** (grades the session) | ✗ | ✓ every message |
 | Learns from mistakes | Write more prompt | Each mistake becomes a graded rule |
-| Tested | Rarely | **44 self-tests + 35 routing evals, run in CI** |
+| Tested | Rarely | **54 self-tests + 35 routing evals, run in CI** |
 
 **The philosophy:** if code can check it, code checks it. Only judgment calls are left to the agent.
 
@@ -240,6 +272,8 @@ node .referee/scripts/scan.mjs             # Re-run the first look at the repo
 node .referee/scripts/report.mjs           # What /referee shows
 node .referee/scripts/method.mjs status    # Ready to merge? (computed, not claimed)
 node .referee/scripts/method.mjs audits    # Scores across recent sessions
+node .referee/scripts/impact.mjs           # Before (observe) vs after (enforce)
+node .referee/scripts/daily.mjs            # Today's summary (also /referee-today)
 node .referee/scripts/method.mjs claude-md # Which CLAUDE.md lines should be a lint rule or test instead
 node .referee/scripts/eval-triggers.mjs    # Does each request route to the right skill?
 node .referee/scripts/selftest.mjs         # Does the referee itself work?
@@ -259,6 +293,8 @@ node .referee/scripts/selftest.mjs         # Does the referee itself work?
 | `fullSendHours` | `6` | How long "full send" lasts |
 | `stopGateMaxBlocks` | `3` | Retries on failing checks before it must stop and tell you |
 | `showResultsEachMessage` | `true` | The result line after each message |
+| `mode` | `enforce` | `observe` = watch and record only, block nothing |
+| `baselineUntil` | none | Observe until this date, then enforce. Set by `--baseline=N` |
 | `reviewer` | `independent-reviewer` subagent | Or a CLI, to review with a different model family |
 
 </details>

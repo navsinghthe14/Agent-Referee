@@ -124,6 +124,40 @@ t('stop gate passes a green verify', hook('stop', { session_id: 'r' }).status ==
 hook('log', { session_id: 'L', tool_name: 'Skill', tool_input: { skill: 'ship' } });
 t('log hook writes the session log', fs.existsSync(path.join(logs, 'L.jsonl')));
 
+// 7b. Observe mode (the "before"), impact report and daily summary
+{
+  const day = new Date().toISOString().slice(0, 10);
+  fs.mkdirSync(path.join(tmp, '.referee', 'state'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, '.referee', 'state', 'onboarded'), 'x');
+  cfg.mode = 'observe'; cfg.verify = 'node -e "process.exit(1)"'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  t('observe: push to main runs, but is recorded', hook('guard', { session_id: 'obs', tool_name: 'Bash', tool_input: { command: 'git push origin main' } }).status === 0
+    && /would_block/.test(fs.readFileSync(path.join(logs, 'obs.jsonl'), 'utf8')));
+  t('observe: router stays silent', hook('route', { session_id: 'obs', prompt: 'fix it, full stop' }).stdout.trim() === '');
+  fs.writeFileSync(path.join(tmp, 'a.txt'), 'obs change');
+  t('observe: stop gate never blocks, even with failing checks', hook('stop', { session_id: 'obs' }).status === 0);
+  const sl2 = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/statusline.mjs')], { cwd: tmp, encoding: 'utf8', input: '{}', env }).stdout;
+  t('observe: status line says it is only observing', /observing/.test(sl2), sl2);
+  cfg.mode = 'enforce'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  hook('route', { session_id: 'enf', prompt: 'fix it' });
+  hook('guard', { session_id: 'enf', tool_name: 'Bash', tool_input: { command: 'git push origin main' } });
+  fs.writeFileSync(path.join(tmp, 'a.txt'), 'enf change');
+  const sb1 = hook('stop', { session_id: 'enf' }).status;
+  cfg.verify = 'node -e "process.exit(0)"'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  const sb2 = hook('stop', { session_id: 'enf', stop_hook_active: true }).status;
+  t('enforce: failing checks send the agent back, then it finishes green', sb1 === 2 && sb2 === 0, `${sb1},${sb2}`);
+  const imp = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/impact.mjs')], { cwd: tmp, encoding: 'utf8', env }).stdout;
+  t('impact report compares before (observe) with after (enforce)', /Before \(observe\)/.test(imp) && /In one line:/.test(imp) && /pushes to main \| 1 \| 1/.test(imp), imp);
+  const dly = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/daily.mjs'), day], { cwd: tmp, encoding: 'utf8', env }).stdout;
+  t('daily summary counts blocks and catches', /stopped \*\*\d+ risky moves?\*\*/.test(dly) && /sent the agent back \*\*1 time\*\*/.test(dly), dly);
+  fs.writeFileSync(path.join(tmp, '.referee', 'state', 'last-day'), '2000-01-01');
+  writeLog('old', [{ t: '2000-01-01T10:00:00Z', type: 'prompt', text: 'x' }]);
+  t('first message of a new day shows yesterday\'s summary', /yesterday's referee summary/.test(routeP('hello').stdout));
+  cfg.baselineUntil = new Date(Date.now() + 864e5).toISOString(); fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  t('a baseline period observes until its end date', bash('git push origin main') === 0);
+  delete cfg.baselineUntil; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  t('after the baseline, the referee enforces', bash('git push origin main') === 2);
+}
+
 // 8. Visible results: a line after each message, the status line, /referee, first-run onboarding
 const stopOut = hook('stop', { session_id: 'r' }).stdout;
 let sys = ''; try { sys = JSON.parse(stopOut.trim().split('\n').pop()).systemMessage; } catch {}

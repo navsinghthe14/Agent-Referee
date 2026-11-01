@@ -1,4 +1,5 @@
 {
+  "mode": "enforce",
   "mainBranch": "main",
   "verify": "",
   "verifyFull": "",

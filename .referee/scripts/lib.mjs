@@ -59,6 +59,13 @@ export function fullSendActive(cfg = config()) {
   return Date.now() - fs.statSync(f).mtimeMs < hours * 3600 * 1000;
 }
 
+// "observe" = measure only (the "before"): nothing blocked, nothing said to the agent.
+// "enforce" = the referee is on. A baseline set at install ("baselineUntil") observes until that date, then enforces.
+export function effectiveMode(cfg = config()) {
+  if (cfg.baselineUntil && Date.now() < Date.parse(cfg.baselineUntil)) return 'observe';
+  return cfg.mode === 'observe' ? 'observe' : 'enforce';
+}
+
 export function branchSlug(b) { return (b || 'detached').replace(/[^\w.-]+/g, '-'); }
 
 // Fingerprint of the working tree, so the Stop hook can tell whether this turn changed anything.

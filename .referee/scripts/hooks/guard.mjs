@@ -2,7 +2,7 @@
 // PreToolUse hook: hard walls. Exit 2 blocks the call and shows the reason to the agent.
 // Scope: this stops mistakes and casual workarounds. It is not a sandbox; a determined agent can
 // obfuscate a shell command. The session audit and human review cover the rest.
-import { config, readStdin, rel, protectedMatch, fullSendActive, logEvent, git } from '../lib.mjs';
+import { config, readStdin, rel, protectedMatch, fullSendActive, logEvent, git, effectiveMode } from '../lib.mjs';
 
 // Paths whose mere mention in a shell command is blocked (the agent never needs them).
 const STATE_PATTERN = /\.referee[\\/]+state|full-send/;
@@ -54,6 +54,8 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
   const fullSend = fullSendActive(cfg);
 
   const block = (reason) => {
+    // Observe mode (the "before" measurement): record what would have been blocked, let it run.
+    if (effectiveMode(cfg) === 'observe') { logEvent(input.session_id, { type: 'would_block', tool, reason }); process.exit(0); }
     logEvent(input.session_id, { type: 'blocked', tool, reason });
     console.error(`[Referee] Blocked: ${reason}`);
     process.exit(2);

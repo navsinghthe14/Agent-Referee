@@ -5,7 +5,7 @@
 //     while it fails, up to config.stopGateMaxBlocks times per turn (default 3), then hands it to the human;
 // (3) shows the user a one-line result after each message (config.showResultsEachMessage, default on)
 //     and saves it for the status line and /referee.
-import { config, readStdin, sh, treeSnapshot, readTurn, writeTurn, writeLast } from '../lib.mjs';
+import { config, readStdin, sh, treeSnapshot, readTurn, writeTurn, writeLast, logEvent, effectiveMode } from '../lib.mjs';
 import { audit } from '../audit.mjs';
 import { resultLine } from '../report.mjs';
 
@@ -22,9 +22,15 @@ if (process.env.REFEREE_HOOK === 'stop-gate' || (process.argv[1] || '').endsWith
   } catch (e) { console.error(`[Referee] Session audit error: ${e.message}`); }
 
   // Finish the turn: save the result and show it to the user.
+  const observe = effectiveMode(cfg) === 'observe';
   const done = (verify, code = 0, agentMessage = '') => {
-    const last = { sid, at: new Date().toISOString(), score, verify, verifyCmd: cfg.verify || '' };
+    const last = { sid, at: new Date().toISOString(), score, verify, verifyCmd: cfg.verify || '', mode: observe ? 'observe' : 'enforce' };
     try { writeLast(last); } catch {}
+    // One event per finished turn, for impact.mjs: did the agent end this turn with failing checks?
+    if (code !== 2 || observe) try { logEvent(sid, { type: 'turn_end', verify, mode: last.mode }); } catch {}
+    else try { logEvent(sid, { type: 'stop_blocked', verify }); } catch {}
+    // Observe mode never blocks and stays silent: we're measuring the agent's normal behaviour.
+    if (observe) process.exit(0);
     if (code === 2) { console.error(agentMessage); process.exit(2); }
     if (agentMessage) console.error(agentMessage);
     if (cfg.showResultsEachMessage !== false) console.log(JSON.stringify({ systemMessage: resultLine(last) }));

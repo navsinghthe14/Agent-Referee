@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, AGENT, config, git, sh, fullSendActive } from './lib.mjs';
+import { ROOT, AGENT, config, git, sh, fullSendActive, effectiveMode } from './lib.mjs';
 
 const rows = [];
 const add = (ok, name, note = '', warn = false) => rows.push({ ok, name, note, warn });
@@ -59,8 +59,13 @@ if (hookCmd) {
     input: JSON.stringify({ session_id: 'doctor', tool_name: 'Bash', tool_input: { command: `git push origin ${cfg.mainBranch || 'main'}` } }),
   });
   const fullSendOn = fullSendActive(cfg);
-  const ok = r.status === 2 || (r.status === 0 && fullSendOn);
-  add(ok, 'Live test: guard blocks a push to main', ok ? (r.status === 2 ? 'blocked as expected' : 'allowed: full send is on right now') : `unexpected exit ${r.status}: ${(r.stderr || '').trim().slice(0, 120)}`);
+  const observing = effectiveMode(cfg) === 'observe';
+  let recorded = false;
+  try { recorded = /would_block/.test(fs.readFileSync(path.join(AGENT, 'logs', 'doctor.jsonl'), 'utf8')); } catch {}
+  const ok = observing ? r.status === 0 && recorded : r.status === 2 || (r.status === 0 && fullSendOn);
+  add(ok, observing ? 'Live test: guard records a push to main (observe mode)' : 'Live test: guard blocks a push to main',
+    ok ? (observing ? `recorded, not blocked: observing${cfg.baselineUntil ? ` until ${cfg.baselineUntil.slice(0, 10)}` : ''}` : r.status === 2 ? 'blocked as expected' : 'allowed: full send is on right now')
+       : `unexpected exit ${r.status}: ${(r.stderr || '').trim().slice(0, 120)}`);
   // Don't let the doctor's test count against a real session score.
   try { fs.rmSync(path.join(AGENT, 'logs', 'doctor.jsonl'), { force: true }); } catch {}
 } else add(false, 'Live test: guard blocks a push to main', 'guard hook not registered');
