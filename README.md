@@ -66,7 +66,7 @@ You've added rules to `CLAUDE.md`. In capital letters. It still happens, because
 ## 🚀 Quick start (60 seconds)
 
 ```bash
-git clone https://github.com/<you>/agent-referee
+git clone https://github.com/navsinghthe14/Agent-Referee agent-referee
 bash agent-referee/install.sh /path/to/your-repo
 ```
 
