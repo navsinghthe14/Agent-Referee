@@ -1,6 +1,29 @@
-# Patch notes — 2026-11-01
+# Changelog
 
-Every fix has a regression test in `.referee/scripts/selftest.mjs` (37 checks; the unpatched kit fails 19 of the original 35). CI runs it on every PR.
+Newest first. Every change updates README.md and SKILLS.md in the same commit.
+
+## 2026-11-01 — Measure the "before", daily summary
+
+- **Observe mode:** records what would have been blocked, blocks nothing, says nothing to the agent.
+- **`install.sh --baseline=N`:** observe for N days, then enforce automatically.
+- **`impact.mjs`:** before (observe) vs after (enforce), from the hooks' own logs.
+- **Daily summary:** what was blocked, caught and slipped. Shown at the first message of each day; `/referee-today` shows today's.
+- 54 self-tests.
+
+## 2026-11-01 — See that it's running
+
+- **First-run onboarding** (`referee-onboard` skill, `scan.mjs`): reads the repo, shows which skills apply and how, before any task.
+- **A result line after each message**, a **status line**, a **`/referee`** command, and **`doctor.mjs`** run by the installer.
+- Rules carry a `plain` sentence shown to the user when they fail.
+
+## 2026-11-01 — Rebrand to Agent Referee, merged skills
+
+- 11 skills, with three adapted from Superpowers (MIT).
+- Rules can be scoped to files (`"file": "db/**"`).
+
+## 2026-11-01 — Security and correctness fixes
+
+Every fix has a regression test in `.referee/scripts/selftest.mjs` (the unpatched kit failed 19 of the original 35 checks). CI runs it on every PR.
 
 | # | Bug | Fix | File |
 |---|---|---|---|

@@ -31,6 +31,15 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
 
 ## Each skill
 
+### referee-onboard
+- **Description:** Use the first time the referee runs in a repo, or when asked to "set up the referee" or "show what the referee will do here". Scans the codebase, then shows which skills apply and how, before any task starts.
+- **What it does:** runs a read-only scan of the repo, then shows three tables: what it found, how each skill will work here, and what will be blocked. It asks about anything unprotected, offers a baseline week to measure the "before", and explains the daily summary.
+- **How it's triggered:** automatically at the first message in a repo (`route.mjs` checks for `.referee/state/onboarded`), or by `set up the referee` / `what will the referee do here`.
+- **Code behind it:**
+  - `scan.mjs` reads files and git only, and saves `.referee/reports/scan.md`;
+  - `scan.mjs --done` marks onboarding finished;
+  - `install.sh --baseline=N` sets the observe period, and `impact.mjs` reports the before and after.
+
 ### referee-rules
 - **Description:** Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other eleven skills.
 - **What it does:** the house rules (seven judgment rules) and the map of which skill fits which situation. It also lists what the code enforces, so the agent knows it can't skip those.
@@ -126,6 +135,11 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
 ## Examples in simple English
 
 One real situation for each skill: what you say, what the agent does, and what the referee checks.
+
+**referee-onboard**
+- *You say:* anything, the first time, for example "fix the login bug".
+- *The agent:* scans the repo first and shows what it found (for example "Turborepo, 2 packages, migrations in `supabase/migrations`"), how each skill will work there, and what's not protected yet. It offers a baseline week, then fixes the bug.
+- *The referee checks:* this skill loaded before the first edit of that first turn.
 
 **referee-rules**
 - *You say:* anything. This is the first thing the agent reads.

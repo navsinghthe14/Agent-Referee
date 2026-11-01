@@ -89,6 +89,8 @@ Then open Claude Code in your repo and **send any message.** That's it.
 
 > **No config needed.** It finds your checks command by itself: `npm`/`pnpm`/`yarn` scripts, or `turbo --affected` in a monorepo.
 
+**Want proof it helps before you rely on it?** Add `--baseline=7`. For a week the referee only watches, then it switches on by itself, and you get your own before-and-after. [How it works ↓](#6-your-own-before-and-after)
+
 ---
 
 ## 👀 What you'll see
@@ -118,7 +120,7 @@ What the referee will block here
   - ⚠ Not protected yet: infra. Want it protected?
 ```
 
-Every line is read from **your** repo. It doesn't guess.
+Every line is read from **your** repo. It doesn't guess. It then asks once whether you'd like to [measure your "before"](#6-your-own-before-and-after) first, and carries on with what you asked for.
 
 ### 2. A score after every message
 
@@ -325,8 +327,11 @@ Yes. The hooks run through Node, not bash.
 **Can my whole team use it?**
 Commit the pack. Everyone's agent then follows the same process, and everyone sees the same score.
 
+**What happens during the baseline week?**
+Nothing is blocked and the agent is told nothing, so it behaves as it would without the referee. That also means nothing is protected that week, so turn on GitHub branch protection for `main` first.
+
 **Can I remove it?**
-Delete `.referee/` and `.claude/skills/referee-*`, and remove the hooks from `.claude/settings.json`.
+Delete `.referee/`, the 12 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
 
 ---
 
