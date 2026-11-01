@@ -124,6 +124,26 @@ t('stop gate passes a green verify', hook('stop', { session_id: 'r' }).status ==
 hook('log', { session_id: 'L', tool_name: 'Skill', tool_input: { skill: 'ship' } });
 t('log hook writes the session log', fs.existsSync(path.join(logs, 'L.jsonl')));
 
+// 8. Visible results: a line after each message, the status line, /referee, first-run onboarding
+const stopOut = hook('stop', { session_id: 'r' }).stdout;
+let sys = ''; try { sys = JSON.parse(stopOut.trim().split('\n').pop()).systemMessage; } catch {}
+t('after each message the user sees a "⚖ Referee" result line', /^⚖ Referee/.test(sys), stopOut);
+const statusCmd = JSON.parse(fs.readFileSync(path.join(tmp, '.claude', 'settings.json'), 'utf8')).statusLine.command;
+const sl = spawnSync(statusCmd, { cwd: tmp, shell: true, encoding: 'utf8', input: JSON.stringify({ session_id: 'r' }), env }).stdout.trim();
+t('status line shows "⚖ Referee on" and the mode', /^⚖ Referee on · FULL (STOP|SEND)/.test(sl), sl);
+const rep = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/report.mjs')], { cwd: tmp, encoding: 'utf8', env }).stdout;
+t('/referee report shows the mode and checks', /Mode:/.test(rep) && /Checks:/.test(rep), rep);
+cfg.showResultsEachMessage = false; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+t('result line can be switched off', !/systemMessage/.test(hook('stop', { session_id: 'r' }).stdout));
+const onboardFlag = path.join(tmp, '.referee', 'state', 'onboarded');
+fs.rmSync(onboardFlag, { force: true });
+t('first message in a repo starts onboarding', /referee-onboard/.test(routeP('fix the header, full stop').stdout));
+const scan = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/scan.mjs')], { cwd: tmp, encoding: 'utf8', env }).stdout;
+t('scan shows what it found and how each skill will work', /## What I found/.test(scan) && /## How the referee will work here/.test(scan) && /\*\*ship\*\*/.test(scan));
+spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/scan.mjs'), '--done'], { cwd: tmp, encoding: 'utf8', env });
+const after = routeP('fix the header, full stop').stdout;
+t('after onboarding, messages route to the task skill', /`ship`/.test(after) && !/referee-onboard/.test(after), after);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(fail ? `\n${fail} failing` : '\nall passing');
 process.exit(fail ? 1 : 0);

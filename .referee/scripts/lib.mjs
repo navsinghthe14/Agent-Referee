@@ -78,6 +78,23 @@ export function writeTurn(sessionId, data) {
   fs.writeFileSync(turnStateFile(sessionId), JSON.stringify(data));
 }
 
+// Last result per session, for the status line and /referee. Keeps the 20 most recent sessions.
+const lastFile = () => path.join(AGENT, 'state', 'last.json');
+export function writeLast(entry) {
+  let all = {};
+  try { all = JSON.parse(fs.readFileSync(lastFile(), 'utf8')); } catch {}
+  const by = { ...(all.bySession || {}), [entry.sid || 'none']: entry };
+  const keep = Object.entries(by).sort((a, b) => (b[1].at || '').localeCompare(a[1].at || '')).slice(0, 20);
+  fs.mkdirSync(path.join(AGENT, 'state'), { recursive: true });
+  fs.writeFileSync(lastFile(), JSON.stringify({ latest: entry, bySession: Object.fromEntries(keep) }));
+}
+export function readLast(sessionId) {
+  try {
+    const all = JSON.parse(fs.readFileSync(lastFile(), 'utf8'));
+    return (sessionId && all.bySession?.[sessionId]) || all.latest || null;
+  } catch { return null; }
+}
+
 // Session log: one JSON line per event, written by hooks (never by the agent).
 export function logEvent(sessionId, event) {
   if (!sessionId) return;

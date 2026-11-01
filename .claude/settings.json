@@ -12,5 +12,6 @@
     "Stop": [
       { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='stop-gate';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','stop-gate.mjs')))\"" }] }
     ]
-  }
+  },
+  "statusLine": { "type": "command", "command": "node -e \"import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','statusline.mjs')))\"" }
 }

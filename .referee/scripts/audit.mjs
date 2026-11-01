@@ -77,7 +77,7 @@ export function audit(sessionId) {
       const n = ev.filter(e => e.type === 'blocked').length;
       status = n > rule.max ? 'fail' : 'pass'; evidence = `${n} blocked action(s)`;
     }
-    results.push({ id: rule.id, status, evidence, why: rule.why });
+    results.push({ id: rule.id, status, evidence, why: rule.why, plain: rule.plain });
   }
 
   const prompts = ev.filter(e => e.type === 'prompt');

@@ -30,10 +30,14 @@ if (process.env.REFEREE_HOOK === 'route' || (process.argv[1] || '').endsWith('ro
   if (fullSendIntent(prompt)) { fs.mkdirSync(state, { recursive: true }); fs.writeFileSync(flag, new Date().toISOString()); fullSend = true; }
   else if (/\bfull stop\b/i.test(prompt) && fs.existsSync(flag)) fs.unlinkSync(flag);
   try { writeTurn(input.session_id, { snap: treeSnapshot(), blocks: 0 }); } catch {}
-  const skill = route(prompt);
+  // First run in this repo: onboard before anything else, then carry on with the request.
+  const onboarded = fs.existsSync(path.join(state, 'onboarded'));
+  const taskSkill = route(prompt);
+  const skill = onboarded ? taskSkill : 'referee-onboard';
   logEvent(input.session_id, { type: 'prompt', text: prompt.slice(0, 200), routed: skill, fullSend });
   const lines = [];
-  if (skill) lines.push(`[Referee] Router: load the \`${skill}\` skill before doing anything else. The session audit checks this.`);
+  if (!onboarded) lines.push(`[Referee] First run in this repo: load the \`referee-onboard\` skill before doing anything else. Show the user what the referee found and how it will work here, then continue with their request${taskSkill ? ` using the \`${taskSkill}\` skill` : ''}.`);
+  else if (skill) lines.push(`[Referee] Router: load the \`${skill}\` skill before doing anything else. The session audit checks this.`);
   if (fullSend) lines.push('[Referee] Full send is ON: you may merge after status is green.');
   if (lines.length) console.log(lines.join('\n'));
   process.exit(0);

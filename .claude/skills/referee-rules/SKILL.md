@@ -1,6 +1,6 @@
 ---
-name: referee
-description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other ten skills.
+name: referee-rules
+description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other eleven skills.
 ---
 
 # How agents work in this repo
@@ -35,7 +35,8 @@ If a hook blocks you, fix the cause. Never work around a hook or edit `.referee/
 
 | Situation | Skill |
 | --- | --- |
-| First time in this repo, or agents keep getting confused | `repo-audit` |
+| First message in this repo (the router asks for it), or "set up the referee" | `referee-onboard` |
+| Agents keep getting confused; a deep review of the repo | `repo-audit` |
 | Make a change end to end ("full stop" or "full send") | `ship` |
 | The change spans several files, steps or packages | `writing-plans` (from `ship`, or on its own) |
 | About to say done, fixed, passing or ready; a subagent says it finished | `verification-before-completion` |

@@ -1,6 +1,7 @@
 {
   "note": "Read by .referee/scripts/hooks/route.mjs on every prompt. First match wins, so specific routes come before general ones. Patterns name the method's own phrases, not everyday product words (\"machine learning\", \"onboarding flow\", \"end-to-end tests\", \"baseline score\" must route nowhere). Test: node .referee/scripts/eval-triggers.mjs",
   "routes": [
+    { "skill": "referee-onboard", "pattern": "\\b(set ?up the referee|referee (setup|onboarding|scan)|what (will|does) the referee do|re-?scan (the|this) repo for the referee)\\b" },
     { "skill": "agent-postmortem", "pattern": "\\b(why did (you|it|the agent)|wrong (tool|skill|file|command)|post-?mortem|(you|it|the agent|claude) keeps? (doing|making|using|editing|calling)|went wrong)\\b" },
     { "skill": "ship", "pattern": "\\bfull (send|stop)\\b|\\b(ship it|take (it|this) end to end|own (it|this) end to end)\\b" },
     { "skill": "receiving-code-review", "pattern": "\\b((address|respond to|handle|fix|resolve|work through) (the |these |those |my |all )?(review|pr|reviewer'?s?) (comments|feedback|findings|notes)|reviewer (said|says|wants|asked|flagged))\\b" },

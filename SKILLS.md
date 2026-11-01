@@ -1,6 +1,6 @@
 # Skills — what each one does and how the code uses it
 
-Eleven skills in `.claude/skills/`. Eight come from the original agent-method kit; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
+Twelve skills in `.claude/skills/`. Eight come from the original agent-method kit, one (referee-onboard) is new; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
 
 ## How a skill gets used
 
@@ -15,7 +15,7 @@ Then `.referee/scripts/hooks/log.mjs` records every Skill call, and `.referee/sc
 ## The flow
 
 ```
-prompt ─▶ route.mjs ─▶ referee (rules + map)  
+prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
                            │
             ┌──────────────┼──────────────────────────────┐
             ▼              ▼                              ▼
@@ -31,8 +31,8 @@ prompt ─▶ route.mjs ─▶ referee (rules + map)
 
 ## Each skill
 
-### referee
-- **Description:** Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other ten skills.
+### referee-rules
+- **Description:** Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other eleven skills.
 - **What it does:** the house rules (seven judgment rules) and the map of which skill fits which situation. It also lists what the code enforces, so the agent knows it can't skip those.
 - **How it's triggered:** by its description. It isn't in `routing.json`, because it's the entry point the others hang off.
 - **Code behind it:** it describes all four hooks and `method.mjs`.
@@ -127,7 +127,7 @@ prompt ─▶ route.mjs ─▶ referee (rules + map)
 
 One real situation for each skill: what you say, what the agent does, and what the referee checks.
 
-**referee**
+**referee-rules**
 - *You say:* anything. This is the first thing the agent reads.
 - *The agent:* learns the house rules: look at the code before changing it, keep changes small, prove things work, ask when unsure.
 - *The referee checks:* nothing directly. This skill tells the agent what the other scripts will check.
@@ -196,5 +196,5 @@ One real situation for each skill: what you say, what the agent does, and what t
 2. If users ask for it in a predictable way, add a route to `.referee/routing.json`, placing specific routes above general ones.
 3. Add cases to `.referee/evals/triggers.json`: at least one phrase that should route to it, and one everyday phrase that must not.
 4. If it must run before some action, add a `requires_before` rule to `.referee/session-rules.json`.
-5. Add it to the table in `referee/SKILL.md` and to this file.
+5. Add it to the table in `referee-rules/SKILL.md` and to this file.
 6. Run `node .referee/scripts/eval-triggers.mjs` and `node .referee/scripts/selftest.mjs`.

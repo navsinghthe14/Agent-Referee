@@ -15,7 +15,7 @@ while IFS= read -r f; do
     # --upgrade replaces the kit's code (scripts) but never your config, rules, routing or skills.
     if [ "$UPGRADE" = "--upgrade" ] && [[ "$f" == .referee/scripts/* ]]; then cp "$SRC/$f" "$t"; upgraded=$((upgraded+1)); else kept=$((kept+1)); fi
   else mkdir -p "$(dirname "$t")"; cp "$SRC/$f" "$t"; copied=$((copied+1)); fi
-done < <(cd "$SRC" && find .claude/skills .claude/agents .referee kb .github -type f \
+done < <(cd "$SRC" && find .claude/skills .claude/agents .claude/commands .referee kb .github -type f \
   ! -path '.referee/logs/*' ! -path '.referee/audits/*' ! -path '.referee/state/*' ! -path '.referee/reports/*')
 
 # Merge hooks into .claude/settings.json without dropping existing settings.
@@ -30,6 +30,10 @@ for(const [ev,groups] of Object.entries(add)){cur.hooks[ev]??=[];
   for(const g of groups){const c=g.hooks[0].command,h=hookFile(c);
     cur.hooks[ev]=cur.hooks[ev].filter(x=>!(x.hooks||[]).some(k=>k.command!==c&&hookFile(k.command||"")===h));
     if(!cur.hooks[ev].some(x=>(x.hooks||[]).some(k=>k.command===c)))cur.hooks[ev].push(g);}}
+// Status line: add ours only if the repo has none. Never replace someone else'"'"'s.
+const sl=JSON.parse(fs.readFileSync(process.env.SRC+"/.claude/settings.json","utf8")).statusLine;
+if(sl&&!cur.statusLine)cur.statusLine=sl;
+else if(sl&&cur.statusLine&&!String(cur.statusLine.command||"").includes("statusline.mjs"))console.log("Kept your own status line. To show the referee too, see README > Status line.");
 fs.mkdirSync(process.env.DEST+"/.claude",{recursive:true});
 fs.writeFileSync(p,JSON.stringify(cur,null,2)+"\n");'
 
@@ -63,4 +67,9 @@ GI="$DEST/.gitignore"; touch "$GI"
 while IFS= read -r line; do grep -qxF "$line" "$GI" || echo "$line" >> "$GI"; done < "$SRC/.gitignore.referee"
 
 echo "Agent Referee installed: $copied file(s) added, $upgraded script(s) upgraded, $kept already present (kept yours)."
-echo "Next: open Claude Code in the repo and say \"audit the repo\". Check sessions with: node .referee/scripts/method.mjs audits"
+
+# Prove it works before the user opens Claude Code.
+(cd "$DEST" && CLAUDE_PROJECT_DIR="$DEST" node .referee/scripts/doctor.mjs) || true
+echo
+echo "Next: open Claude Code in this repo and send any message."
+echo "      The referee will scan the repo first and show you which skills it will use and how."
