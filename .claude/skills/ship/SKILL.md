@@ -12,10 +12,11 @@ You own the work from its current state to a PR that's ready to merge. Don't bot
 1. **Branch.** Create a branch named for the problem. Never work on the main branch.
 2. **Understand.** Read the code involved and `kb/tasks/planned/`. If the task is ambiguous in a way that changes the result, ask one question. Otherwise decide, and record the decision in the PR.
 3. **Plan, if it's more than a small change.** Several files, steps or packages → load `writing-plans` and execute that plan task by task (move it to `kb/tasks/active/`). One or two files with an obvious test → skip to 4.
-4. **Change.** The smallest change that solves the stated problem. Test first where there's a test to write.
-5. **Prove.** Load `verification-before-completion`: run `config.verify`, plus a test that fails before your change and passes after it. UI changes: screenshot or recording, kept out of the repo.
-6. **Review.** Load `review-loop` (which uses `receiving-code-review` for the findings), at most three rounds.
-7. **PR.** Load `file-pr`.
-8. **CI.** Watch checks until they're green. Fix failures your change caused. Report unrelated ones; don't fix them.
-9. **Status.** Run `node .referee/scripts/method.mjs status`, then repeat the failing steps until every line shows ✓.
-10. **Hand over or merge.** Full Stop: post a summary with the problem, the fix, the evidence, the review findings and anything unsure. Full Send: merge, then post the same summary. Move the plan, if any, to `kb/tasks/done/`.
+4. **Agree the tests.** For a feature or bug fix that needs tests, load `spec-first`: agree what "correct" means with the user in plain English (0–5 questions), write the tests, lock them. Skip it for changes with nothing to test.
+5. **Change.** The smallest change that makes the agreed tests pass. Never edit a locked test to make it pass.
+6. **Prove.** Load `verification-before-completion`: run `config.verify`, plus a test that fails before your change and passes after it. UI changes: screenshot or recording, kept out of the repo.
+7. **Review.** Load `review-loop` (which uses `receiving-code-review` for the findings), at most three rounds.
+8. **PR.** Load `file-pr`.
+9. **CI.** Watch checks until they're green. Fix failures your change caused. Report unrelated ones; don't fix them.
+10. **Status.** Run `node .referee/scripts/method.mjs status`, then repeat the failing steps until every line shows ✓.
+11. **Hand over or merge.** Full Stop: post a summary with the problem, the fix, the evidence, the review findings and anything unsure. Full Send: merge, then post the same summary. Move the plan, if any, to `kb/tasks/done/`.

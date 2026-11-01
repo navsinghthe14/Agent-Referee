@@ -103,6 +103,7 @@ L.push('| Skill | When it kicks in | What it will do in this repo |', '| --- | -
 const vcmd = cfg.verify ? `\`${cfg.verify}\`` : '⚠ no checks command yet, so set `"verify"` in `.referee/config.json`';
 L.push(`| **ship** | "fix X, full stop" / "full send" | Branch → test → fix → run ${vcmd} → review → PR. Stops at a ready PR unless you said "full send". |`);
 L.push(`| **writing-plans** | Changes across several files${monorepo ? ' or packages' : ''} | Writes a step-by-step plan to \`kb/tasks/planned/\`${packages.length ? `, naming exact packages such as \`${packages[0].dir}\`` : ''}, and asks you to confirm before coding. |`);
+L.push(`| **spec-first** | Features and bug fixes that need tests | Agrees the tests with you in plain English (0–5 questions), saves them to \`kb/tasks/specs/\`, then locks them so the agent can't change them to pass. |`);
 L.push(`| **verification-before-completion** | Before any "done" or PR | Runs ${vcmd} and shows the output. ${testTool.includes('test') ? 'Bug fixes come with a test that failed before and passes after.' : '⚠ No test script found, so "proof" will be limited to the checks command and screenshots.'} |`);
 L.push(`| **review-loop** | Before every PR | Sends the change to ${reviewer} for a second opinion, at most 3 rounds. |`);
 L.push(`| **receiving-code-review** | Acting on review comments | Checks each comment against the code before changing anything. |`);

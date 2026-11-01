@@ -29,6 +29,11 @@ if (process.env.REFEREE_HOOK === 'route' || (process.argv[1] || '').endsWith('ro
   let fullSend = false;
   if (fullSendIntent(prompt)) { fs.mkdirSync(state, { recursive: true }); fs.writeFileSync(flag, new Date().toISOString()); fullSend = true; }
   else if (/\bfull stop\b/i.test(prompt) && fs.existsSync(flag)) fs.unlinkSync(flag);
+  // Only the user can unlock agreed tests (spec-first), like "full send".
+  let unlocked = false;
+  if (/\bunlock (the |all |these |those )?tests\b/i.test(prompt) && !/\b(don'?t|do not|never)\s+(\w+\s+){0,2}unlock\b/i.test(prompt) && !/["'`“‘]unlock the tests["'`”’]/i.test(prompt)) {
+    try { fs.rmSync(path.join(state, 'locks.json'), { force: true }); unlocked = true; } catch {}
+  }
   try { writeTurn(input.session_id, { snap: treeSnapshot(), blocks: 0 }); } catch {}
   const onboarded = fs.existsSync(path.join(state, 'onboarded'));
   // Observe mode (after the first-run scan): record the prompt and say nothing,
@@ -55,6 +60,7 @@ if (process.env.REFEREE_HOOK === 'route' || (process.argv[1] || '').endsWith('ro
   const skill = onboarded ? taskSkill : 'referee-onboard';
   logEvent(input.session_id, { type: 'prompt', text: prompt.slice(0, 200), routed: skill, fullSend });
   const lines = [];
+  if (unlocked) lines.push('[Referee] The user unlocked the agreed tests. Change only what they asked, then lock them again with `node .referee/scripts/spec.mjs lock <spec>`.');
   if (summaryNote) lines.push(summaryNote);
   if (!onboarded) lines.push(`[Referee] First run in this repo: load the \`referee-onboard\` skill before doing anything else. Show the user what the referee found and how it will work here, then continue with their request${taskSkill ? ` using the \`${taskSkill}\` skill` : ''}.`);
   else if (skill) lines.push(`[Referee] Router: load the \`${skill}\` skill before doing anything else. The session audit checks this.`);

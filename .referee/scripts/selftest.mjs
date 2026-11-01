@@ -158,6 +158,30 @@ t('log hook writes the session log', fs.existsSync(path.join(logs, 'L.jsonl')));
   t('after the baseline, the referee enforces', bash('git push origin main') === 2);
 }
 
+// 7c. spec-first: agreed tests are locked; only the user can unlock them
+{
+  const spec = 'kb/tasks/specs/late.md';
+  fs.mkdirSync(path.join(tmp, 'kb/tasks/specs'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'tests/score.test.js'), 'test("late by 1s is incomplete", () => {});\n');
+  fs.writeFileSync(path.join(tmp, spec), '# Spec — late submissions\n\n## Checks\n- [you said] late by 1 second → scores "incomplete" · test: `tests/score.test.js` › "late by 1s is incomplete"\n- [assumed] limit comes from settings · test: `tests/score.test.js` › "uses limit"\n\n## Locked test files\n- tests/score.test.js\n');
+  const node = (...a) => spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/spec.mjs'), ...a], { cwd: tmp, encoding: 'utf8', env });
+  t('spec: lock runs (agent-callable, not blocked)', bash(`node .referee/scripts/spec.mjs lock ${spec}`) === 0 && node('lock', spec).status === 0);
+  t('spec: editing a locked test is blocked', edit('tests/score.test.js') === 2);
+  t('spec: sed on a locked test is blocked', bash('sed -i s/1s/2s/ tests/score.test.js') === 2);
+  t('spec: git checkout of a locked test is blocked', bash('git checkout -- tests/score.test.js') === 2);
+  t('spec: deleting the lock file is blocked', bash('rm .referee/state/locks.json') === 2);
+  t('spec: other files stay editable', edit('src/score.js') === 0);
+  const rep = node('report', spec).stdout;
+  t('spec: report lists checks in plain English, lock intact', /late by 1 second → scores "incomplete" \(you said\)/.test(rep) && /assumed — say if that's wrong/.test(rep) && /Locked tests unchanged/.test(rep), rep);
+  fs.appendFileSync(path.join(tmp, 'tests/score.test.js'), '// weakened\n');
+  t('spec: check catches a locked test changed behind the guard', node('check').status === 1 && /changed since it was agreed/.test(node('report', spec).stdout));
+  routeP("don't unlock the tests yet");
+  t('spec: "don\'t unlock the tests" keeps the lock', edit('tests/score.test.js') === 2);
+  const un = routeP('ok, unlock the tests so you can fix the typo').stdout;
+  t('spec: the user saying "unlock the tests" unlocks them', edit('tests/score.test.js') === 0 && /unlocked the agreed tests/.test(un), un);
+}
+
 // 8. Visible results: a line after each message, the status line, /referee, first-run onboarding
 const stopOut = hook('stop', { session_id: 'r' }).stdout;
 let sys = ''; try { sys = JSON.parse(stopOut.trim().split('\n').pop()).systemMessage; } catch {}

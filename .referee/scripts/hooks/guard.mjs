@@ -2,7 +2,7 @@
 // PreToolUse hook: hard walls. Exit 2 blocks the call and shows the reason to the agent.
 // Scope: this stops mistakes and casual workarounds. It is not a sandbox; a determined agent can
 // obfuscate a shell command. The session audit and human review cover the rest.
-import { config, readStdin, rel, protectedMatch, fullSendActive, logEvent, git, effectiveMode } from '../lib.mjs';
+import { config, readStdin, rel, protectedMatch, fullSendActive, logEvent, git, effectiveMode, lockedMatch } from '../lib.mjs';
 
 // Paths whose mere mention in a shell command is blocked (the agent never needs them).
 const STATE_PATTERN = /\.referee[\\/]+state|full-send/;
@@ -66,6 +66,11 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
     const hit = protectedMatch(file, cfg);
     if (hit) block(`${rel(file)} is protected (matches "${hit}" in .referee/config.json). Ask the human to change it.`);
   }
+  // spec-first: tests the user agreed can't be edited to make them pass.
+  if (file) {
+    const lk = lockedMatch(file);
+    if (lk) block(`${lk.file} holds tests you agreed with the user (${lk.spec}). Don't change them to pass: fix the code, or stop and tell the user why the test looks wrong. Only the user can unlock it, by saying "unlock the tests".`);
+  }
 
   if (tool === 'Bash') {
     const cmd = String(ti.command || '');
@@ -74,6 +79,10 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
     if (process.env.REFEREE_ALLOW_PROTECTED !== '1' && WRITE_OP.test(cmd)) {
       const hit = pathTokens(cmd).map(t => [t, protectedMatch(t, cfg)]).find(([, g]) => g);
       if (hit) block(`This command writes near ${rel(hit[0])}, which is protected (matches "${hit[1]}"). Ask the human to change it.`);
+    }
+    if (WRITE_OP.test(cmd) || /\bgit\s+(checkout|restore|rm|mv)\b/.test(cmd)) {
+      const lk = pathTokens(cmd).map(t => lockedMatch(t)).find(Boolean);
+      if (lk) block(`This command changes ${lk.file}, which holds tests you agreed with the user (${lk.spec}). Fix the code instead, or ask the user to say "unlock the tests".`);
     }
     if (/\bgh\s+pr\s+merge\b/.test(cmd) && !fullSend) block('Merging is the human\'s call. Hand over the PR, or the user can say "full send".');
     if (/\bgh\s+api\b/.test(cmd) && /\/merges?\b/.test(cmd) && !fullSend) block('Merging through the GitHub API is still merging. Hand over the PR, or the user can say "full send".');

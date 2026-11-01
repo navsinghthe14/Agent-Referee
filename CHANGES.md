@@ -2,6 +2,13 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-01 — Spec first: tests you agree, then locked
+
+- **`spec-first` skill:** agrees the tests with the user in plain English before coding. 0 questions for small changes, 1–3 typical, at most 5; asks for example answers, not approval.
+- **Test lock:** `spec.mjs lock` fingerprints the agreed test files; the guard blocks edits to them by tool and by shell. Only the user can unlock them, by saying "unlock the tests".
+- **`spec.mjs report`:** the agreed checks in plain English, whether they pass, whether they're unchanged. `method.mjs status` stays red if a locked test changed.
+- `ship` now agrees the tests at step 4. New session rule `spec-tests-locked`. 64 self-tests, 39 routing evals.
+
 ## 2026-11-01 — Measure the "before", daily summary
 
 - **Observe mode:** records what would have been blocked, blocks nothing, says nothing to the agent.

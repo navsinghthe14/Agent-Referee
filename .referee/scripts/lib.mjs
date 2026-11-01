@@ -52,6 +52,16 @@ export function protectedMatch(file, cfg = config()) {
   return (cfg.protectedPaths || []).find(g => globToRegex(g).test(f)) || null;
 }
 
+// Test files the user agreed (spec-first). { "<repo-relative path>": { hash, spec, at } }
+export function readLocks() {
+  try { return JSON.parse(fs.readFileSync(path.join(AGENT, 'state', 'locks.json'), 'utf8')); } catch { return {}; }
+}
+export function lockedMatch(file) {
+  const f = rel(file);
+  const l = readLocks()[f];
+  return l ? { file: f, spec: l.spec } : null;
+}
+
 export function fullSendActive(cfg = config()) {
   const f = path.join(AGENT, 'state', 'full-send');
   if (!fs.existsSync(f)) return false;

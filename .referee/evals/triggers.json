@@ -1,37 +1,158 @@
 [
-  { "prompt": "Fix the misaligned save button, full send", "expect": "ship" },
-  { "prompt": "Investigate the memory leak in the worker. Full stop.", "expect": "ship" },
-  { "prompt": "take this end to end", "expect": "ship" },
-  { "prompt": "open a PR for this branch", "expect": "file-pr" },
-  { "prompt": "write the commit message for these changes", "expect": "file-pr" },
-  { "prompt": "get a second opinion on this diff", "expect": "review-loop" },
-  { "prompt": "review my diff before I push", "expect": "review-loop" },
-  { "prompt": "why did the agent use the wrong tool for the migration?", "expect": "agent-postmortem" },
-  { "prompt": "it keeps making the same import mistake", "expect": "agent-postmortem" },
-  { "prompt": "audit the repo, agents keep getting lost", "expect": "repo-audit" },
-  { "prompt": "trim our CLAUDE.md", "expect": "repo-audit" },
-  { "prompt": "record the decision to drop per-seat pricing", "expect": "repo-knowledge" },
-  { "prompt": "write up the lessons learned from the outage", "expect": "repo-knowledge" },
-  { "prompt": "sort what's in kb/inbox", "expect": "repo-knowledge" },
-  { "prompt": "write an implementation plan for the rubric versioning spec", "expect": "writing-plans" },
-  { "prompt": "plan this out before you touch code", "expect": "writing-plans" },
-  { "prompt": "address the review comments on PR 42", "expect": "receiving-code-review" },
-  { "prompt": "the reviewer says the cache key is wrong", "expect": "receiving-code-review" },
-  { "prompt": "is it actually fixed? verify it", "expect": "verification-before-completion" },
-  { "prompt": "did the tests actually pass?", "expect": "verification-before-completion" },
-  { "prompt": "add a pricing plan page for enterprise", "expect": null },
-  { "prompt": "build the candidate review comments panel", "expect": null },
-  { "prompt": "set up the referee for this repo", "expect": "referee-onboard" },
-  { "prompt": "what will the referee do here?", "expect": "referee-onboard" },
-  { "prompt": "build the referral setup page", "expect": null },
-  { "prompt": "run the skill audit", "expect": "method-upkeep" },
-  { "prompt": "audit the last session, did it call the right skills?", "expect": "method-upkeep" },
-  { "prompt": "what does this function return?", "expect": null },
-  { "prompt": "add a machine learning model to rank candidates", "expect": null },
-  { "prompt": "build the onboarding flow for new users", "expect": null },
-  { "prompt": "write end-to-end tests for login", "expect": null },
-  { "prompt": "set the baseline score to 50", "expect": null },
-  { "prompt": "help me make a decision about the DB schema", "expect": null },
-  { "prompt": "the scorer keeps returning 0 for timeouts", "expect": null },
-  { "prompt": "add a code review step to the candidate report", "expect": null }
+ {
+  "prompt": "Fix the misaligned save button, full send",
+  "expect": "ship"
+ },
+ {
+  "prompt": "Investigate the memory leak in the worker. Full stop.",
+  "expect": "ship"
+ },
+ {
+  "prompt": "take this end to end",
+  "expect": "ship"
+ },
+ {
+  "prompt": "open a PR for this branch",
+  "expect": "file-pr"
+ },
+ {
+  "prompt": "write the commit message for these changes",
+  "expect": "file-pr"
+ },
+ {
+  "prompt": "get a second opinion on this diff",
+  "expect": "review-loop"
+ },
+ {
+  "prompt": "review my diff before I push",
+  "expect": "review-loop"
+ },
+ {
+  "prompt": "why did the agent use the wrong tool for the migration?",
+  "expect": "agent-postmortem"
+ },
+ {
+  "prompt": "it keeps making the same import mistake",
+  "expect": "agent-postmortem"
+ },
+ {
+  "prompt": "audit the repo, agents keep getting lost",
+  "expect": "repo-audit"
+ },
+ {
+  "prompt": "trim our CLAUDE.md",
+  "expect": "repo-audit"
+ },
+ {
+  "prompt": "record the decision to drop per-seat pricing",
+  "expect": "repo-knowledge"
+ },
+ {
+  "prompt": "write up the lessons learned from the outage",
+  "expect": "repo-knowledge"
+ },
+ {
+  "prompt": "sort what's in kb/inbox",
+  "expect": "repo-knowledge"
+ },
+ {
+  "prompt": "write an implementation plan for the rubric versioning spec",
+  "expect": "writing-plans"
+ },
+ {
+  "prompt": "plan this out before you touch code",
+  "expect": "writing-plans"
+ },
+ {
+  "prompt": "address the review comments on PR 42",
+  "expect": "receiving-code-review"
+ },
+ {
+  "prompt": "the reviewer says the cache key is wrong",
+  "expect": "receiving-code-review"
+ },
+ {
+  "prompt": "is it actually fixed? verify it",
+  "expect": "verification-before-completion"
+ },
+ {
+  "prompt": "did the tests actually pass?",
+  "expect": "verification-before-completion"
+ },
+ {
+  "prompt": "add a pricing plan page for enterprise",
+  "expect": null
+ },
+ {
+  "prompt": "build the candidate review comments panel",
+  "expect": null
+ },
+ {
+  "prompt": "set up the referee for this repo",
+  "expect": "referee-onboard"
+ },
+ {
+  "prompt": "what will the referee do here?",
+  "expect": "referee-onboard"
+ },
+ {
+  "prompt": "build the referral setup page",
+  "expect": null
+ },
+ {
+  "prompt": "spec it first: add late-submission scoring",
+  "expect": "spec-first"
+ },
+ {
+  "prompt": "let's agree the tests before you build this",
+  "expect": "spec-first"
+ },
+ {
+  "prompt": "add unit tests for the scoring service",
+  "expect": null
+ },
+ {
+  "prompt": "fix the spec sheet download button",
+  "expect": null
+ },
+ {
+  "prompt": "run the skill audit",
+  "expect": "method-upkeep"
+ },
+ {
+  "prompt": "audit the last session, did it call the right skills?",
+  "expect": "method-upkeep"
+ },
+ {
+  "prompt": "what does this function return?",
+  "expect": null
+ },
+ {
+  "prompt": "add a machine learning model to rank candidates",
+  "expect": null
+ },
+ {
+  "prompt": "build the onboarding flow for new users",
+  "expect": null
+ },
+ {
+  "prompt": "write end-to-end tests for login",
+  "expect": null
+ },
+ {
+  "prompt": "set the baseline score to 50",
+  "expect": null
+ },
+ {
+  "prompt": "help me make a decision about the DB schema",
+  "expect": null
+ },
+ {
+  "prompt": "the scorer keeps returning 0 for timeouts",
+  "expect": null
+ },
+ {
+  "prompt": "add a code review step to the candidate report",
+  "expect": null
+ }
 ]

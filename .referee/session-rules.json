@@ -76,6 +76,23 @@
       "why": "Review findings were verified and triaged, not applied blindly."
     },
     {
+      "id": "spec-tests-locked",
+      "plain": "agreed the tests with you but never locked them",
+      "type": "requires_before",
+      "when": {
+        "tool": "Skill",
+        "skill": "spec-first"
+      },
+      "require": [
+        {
+          "tool": "Bash",
+          "match": "spec.mjs lock"
+        }
+      ],
+      "after": true,
+      "why": "Tests agreed with the user are locked before the code is written, so they can't be changed to pass."
+    },
+    {
       "id": "ship-checked-status",
       "plain": "said it was ready without running the readiness check",
       "type": "requires_before",

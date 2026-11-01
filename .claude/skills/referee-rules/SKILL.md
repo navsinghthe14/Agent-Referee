@@ -1,6 +1,6 @@
 ---
 name: referee-rules
-description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other eleven skills.
+description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other twelve skills.
 ---
 
 # How agents work in this repo
@@ -39,6 +39,7 @@ If a hook blocks you, fix the cause. Never work around a hook or edit `.referee/
 | Agents keep getting confused; a deep review of the repo | `repo-audit` |
 | Make a change end to end ("full stop" or "full send") | `ship` |
 | The change spans several files, steps or packages | `writing-plans` (from `ship`, or on its own) |
+| A feature or bug fix that needs tests: agree them with the user first | `spec-first` |
 | About to say done, fixed, passing or ready; a subagent says it finished | `verification-before-completion` |
 | Get the change reviewed by the independent reviewer | `review-loop` |
 | Act on review feedback from anyone | `receiving-code-review` |

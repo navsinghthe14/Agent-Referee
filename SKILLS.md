@@ -1,6 +1,6 @@
 # Skills — what each one does and how the code uses it
 
-Twelve skills in `.claude/skills/`. Eight come from the original agent-method kit, one (referee-onboard) is new; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
+Thirteen skills in `.claude/skills/`. Eight come from the original agent-method kit, two (referee-onboard, spec-first) are new; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
 
 ## How a skill gets used
 
@@ -64,6 +64,17 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
   - it writes to `kb/tasks/planned/`, which `repo-knowledge` and `ship` read;
   - `ship` moves the plan to `active/`, then to `done/`.
 - **Example:** "Write an implementation plan for rubric versioning" → `kb/tasks/planned/rubric-versioning.md` with tasks for `packages/shared-types`, the migration and the scoring service.
+
+### spec-first
+- **Description:** Use before building a feature or bug fix that needs tests, when the user says "spec it first" or "agree the tests", and from ship for plan-sized work. Agrees the tests with the user in plain English, then locks them.
+- **What it does:** shows the planned checks in plain English, asks 0–5 questions one at a time (only where the user's answer could differ from the agent's guess and would change the code), asks for example answers rather than approval, writes the tests from those answers, makes sure they fail before the change, and locks them.
+- **Router:** `spec it first`, `agree the tests`, `write the tests with me`. `ship` loads it at step 4.
+- **Code behind it:**
+  - the spec goes to `kb/tasks/specs/<name>.md`;
+  - `spec.mjs lock` records a fingerprint of each agreed test file, and `guard.mjs` then blocks edits to them, by tool and by shell (`sed`, `rm`, `git checkout`…);
+  - only the user can unlock them, by saying "unlock the tests" (`route.mjs`), just like "full send";
+  - `spec.mjs check` and `method.mjs status` catch a locked file changed some other way;
+  - session rule `spec-tests-locked` requires the lock after the skill loads.
 
 ### verification-before-completion
 - **Description:** Use before saying work is done, fixed, passing or ready, before every commit, PR or hand-over, and after any subagent reports success. Run the command that proves the claim and quote its output; never claim from memory.
@@ -155,6 +166,11 @@ One real situation for each skill: what you say, what the agent does, and what t
 - *You say:* "Write a plan for letting companies invite team members."
 - *The agent:* writes `kb/tasks/planned/team-invites.md` with small steps such as "Task 1: add an `invites` table, test: an invite expires after 7 days". Then it asks you to check the plan before any code is written.
 - *The referee checks:* plans go in `kb/tasks/`, where the next agent will find them.
+
+**spec-first**
+- *You say:* "Spec it first: late submissions should be handled properly."
+- *The agent:* shows what it will check, then asks one question at a time: *"A candidate submits 1 second after the limit. What should they get?"* You answer "incomplete". That becomes the test. It locks the tests, then builds.
+- *The referee checks:* the tests were locked after agreeing them, and blocks any edit to them. If the agent thinks a test is wrong, it has to stop and ask you.
 
 **verification-before-completion**
 - *You say:* "Is the login bug actually fixed?"

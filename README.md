@@ -10,7 +10,7 @@ Not with more prompts. With code it can't talk its way past.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Works with Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-orange?style=flat-square)
-![Self-tests](https://img.shields.io/badge/self--tests-54%2F54%20passing-brightgreen?style=flat-square)
+![Self-tests](https://img.shields.io/badge/self--tests-64%2F64%20passing-brightgreen?style=flat-square)
 ![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square)
 ![Windows · macOS · Linux](https://img.shields.io/badge/os-windows%20%C2%B7%20macos%20%C2%B7%20linux-lightgrey?style=flat-square)
 
@@ -20,18 +20,18 @@ Not with more prompts. With code it can't talk its way past.
 
 | | |
 | :---: | --- |
-| **100%** | of the risky moves in our test suite are **blocked**: 21 of 21, including pushing to `main`, editing migrations, writing `.env`, merging without permission, `--no-verify`, and the agent switching on "full send" by itself |
-| **0%** | false alarms on the everyday commands we tested: pushing a feature branch, reading `.env`, running your checks |
+| **100%** | of the risky moves in our test suite are **blocked**: 27 of 27, including pushing to `main`, editing migrations, writing `.env`, merging without permission, `--no-verify`, the agent switching on "full send" by itself, and **rewriting tests you agreed so they pass** |
+| **0%** | false alarms on the 7 everyday actions we tested, like pushing a feature branch, reading `.env`, running your checks and editing ordinary code |
 | **100%** | of sessions get a **score you can see**, after every single message |
 | **0** | turns can end with your checks failing. The agent has to fix them or tell you exactly what's broken |
 | **0 sec** | added to chat-only turns. Checks run only when code changed, and in a monorepo only for the packages you touched |
 | **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
-<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (54 checks) and <code>eval-triggers.mjs</code> (35 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
+<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (64 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
 
 <div align="center">
 
-[Quick start](#-quick-start-60-seconds) · [What you'll see](#-what-youll-see) · [The 12 skills](#-the-12-skills) · [Why it's different](#-why-its-different) · [FAQ](#-faq)
+[Quick start](#-quick-start-60-seconds) · [What you'll see](#-what-youll-see) · [The 13 skills](#-the-12-skills) · [Why it's different](#-why-its-different) · [FAQ](#-faq)
 
 </div>
 
@@ -78,7 +78,7 @@ The installer checks itself before you open Claude Code:
   ✓ Node 22
   ✓ Hooks registered in .claude/settings.json — 4 of 4
   ✓ Status line — shows "⚖ Referee on" at the bottom of Claude Code
-  ✓ Skills — 12 found
+  ✓ Skills — 13 found
   ✓ Checks command (verify) — pnpm turbo run typecheck lint --affected
   ✓ Live test: guard blocks a push to main — blocked as expected
 
@@ -189,6 +189,30 @@ For 7 days the referee **only watches**. Nothing is blocked, and it records ever
 
 <sub>Example output, not real data. Yours comes from your own sessions.</sub>
 
+
+### 7. Tests you agree, not tests you accept
+
+Agents write tests that agree with their own code, and people approve them without reading. So before building a feature or fix, the referee asks **you** what "correct" means, in plain English, one question at a time:
+
+```
+I'll check that:
+✓ an on-time submission scores normally
+✓ an empty submission scores 0
+? A candidate submits 1 second after the limit. What should they get?
+(assumed) the time limit comes from the challenge settings
+```
+
+- **0 questions** for a small, clear change; **1–3** for a typical feature or fix; **never more than 5**. It only asks when your answer could differ from its guess *and* would change the code.
+- It asks for **an example answer**, not "is this test OK?", so there's nothing to rubber-stamp. Your answers become the expected values.
+- Then it **locks the tests.** If the agent tries to edit them to make them pass:
+
+```
+Referee: Blocked. tests/score.test.ts holds tests you agreed with the user.
+Fix the code, or stop and tell the user why the test looks wrong.
+```
+
+Only you can unlock them, by saying **"unlock the tests"**. When it's done, you get the report in plain English: every agreed check, whether it passes, and whether the tests are unchanged since you agreed them.
+
 ---
 
 ## 🎮 Two words control it
@@ -202,7 +226,7 @@ The agent **can't switch "full send" on by itself.** If it tries `touch .referee
 
 ---
 
-## 🧠 The 12 skills
+## 🧠 The 13 skills
 
 | Skill | What it does | Say |
 | --- | --- | --- |
@@ -210,6 +234,7 @@ The agent **can't switch "full send" on by itself.** If it tries `touch .referee
 | **referee-rules** | The rulebook. Loads first and points to the right skill | *(automatic)* |
 | **ship** | Takes a task all the way to a ready PR | "Fix X, full stop." |
 | **writing-plans** | Bigger jobs get a plan of small, tested steps before any code | "Write a plan for team accounts." |
+| **spec-first** | You decide what "correct" means: it asks 0–5 plain-English questions, writes the tests from your answers, and locks them | "Spec it first: late submissions." |
 | **verification-before-completion** | No "done" without proof. Shows the real output | "Is it actually fixed?" |
 | **review-loop** | A *separate* agent reviews the change, max 3 rounds, no scope creep | "Second opinion on this diff." |
 | **receiving-code-review** | Checks each review comment against the code and pushes back when it's wrong | "Address the review comments." |
@@ -229,11 +254,11 @@ Most skill packs are **prompts that hope the model complies.** Agent Referee is 
 
 | | Prompt-only skill packs | Agent Referee |
 | --- | --- | --- |
-| Knows the rules | ✓ | ✓ 12 skills |
+| Knows the rules | ✓ | ✓ 13 skills |
 | **Blows the whistle** (blocks bad moves) | ✗ | ✓ 4 hooks, in plain Node |
 | **Keeps score** (grades the session) | ✗ | ✓ every message |
 | Learns from mistakes | Write more prompt | Each mistake becomes a graded rule |
-| Tested | Rarely | **54 self-tests + 35 routing evals, run in CI** |
+| Tested | Rarely | **64 self-tests + 39 routing evals, run in CI** |
 
 **The philosophy:** if code can check it, code checks it. Only judgment calls are left to the agent.
 
@@ -276,6 +301,8 @@ node .referee/scripts/method.mjs status    # Ready to merge? (computed, not clai
 node .referee/scripts/method.mjs audits    # Scores across recent sessions
 node .referee/scripts/impact.mjs           # Before (observe) vs after (enforce)
 node .referee/scripts/daily.mjs            # Today's summary (also /referee-today)
+node .referee/scripts/spec.mjs report <spec> # Agreed tests in plain English, and whether they still pass
+node .referee/scripts/spec.mjs check       # Are all agreed tests unchanged?
 node .referee/scripts/method.mjs claude-md # Which CLAUDE.md lines should be a lint rule or test instead
 node .referee/scripts/eval-triggers.mjs    # Does each request route to the right skill?
 node .referee/scripts/selftest.mjs         # Does the referee itself work?
@@ -331,7 +358,7 @@ Commit the pack. Everyone's agent then follows the same process, and everyone se
 Nothing is blocked and the agent is told nothing, so it behaves as it would without the referee. That also means nothing is protected that week, so turn on GitHub branch protection for `main` first.
 
 **Can I remove it?**
-Delete `.referee/`, the 12 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
+Delete `.referee/`, the 13 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
 
 ---
 
