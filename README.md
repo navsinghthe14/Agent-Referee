@@ -25,7 +25,7 @@ Not with more prompts. With code it can't talk its way past.
 | **100%** | of sessions get a **score you can see**, after every single message |
 | **0** | turns can end with your checks failing. The agent has to fix them or tell you exactly what's broken |
 | **0 sec** | added to chat-only turns. Checks run only when code changed, and in a monorepo only for the packages you touched |
-| **54%** | of these protections **silently failed** in the agent kit this project started from (19 of 35 checks). That's why every rule here has a test |
+| **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
 <sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (44 checks) and <code>eval-triggers.mjs</code> (35 cases), which run in CI on every PR. Run them yourself. To see the impact on <b>your</b> team, run <code>node .referee/scripts/method.mjs audits</code> after a week: it shows the pass rate for every rule across your sessions.</sub>
 
@@ -305,4 +305,4 @@ Then **share your first scorecard.** Everyone's first one is humbling. 😅
 
 ---
 
-<sub>MIT licensed. The writing-plans, verification-before-completion and receiving-code-review skills are adapted from <a href="https://github.com/obra/superpowers">Superpowers</a> by Jesse Vincent (MIT); see <a href="THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a>. Built on the original agent-method kit.</sub>
+<sub><a href="LICENSE">MIT licensed</a> · © 2026 Navneet Singh. Built with Claude. The writing-plans, verification-before-completion and receiving-code-review skills are adapted from <a href="https://github.com/obra/superpowers">Superpowers</a> by Jesse Vincent (MIT); see <a href="THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a>.</sub>
