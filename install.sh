@@ -3,16 +3,18 @@
 #   bash install.sh /path/to/your-repo
 #   bash install.sh /path/to/your-repo --upgrade      # also replace the kit's own scripts with this version
 #   bash install.sh /path/to/your-repo --baseline=7   # observe only for 7 days first, to measure your "before"
+#   bash install.sh /path/to/your-repo --no-ci        # don't add the GitHub Actions workflow
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 DEST="$(cd "${1:-.}" && pwd)"
-UPGRADE=""; BASELINE=""
-for a in "${@:2}"; do case "$a" in --upgrade) UPGRADE="--upgrade";; --baseline=*) BASELINE="${a#--baseline=}";; esac; done
+UPGRADE=""; BASELINE=""; NOCI=""
+for a in "${@:2}"; do case "$a" in --upgrade) UPGRADE="--upgrade";; --no-ci) NOCI=1;; --baseline=*) BASELINE="${a#--baseline=}";; esac; done
 [ "$SRC" = "$DEST" ] && { echo "Run this against another repo: bash install.sh /path/to/repo"; exit 1; }
 command -v node >/dev/null || { echo "Node 18+ is required."; exit 1; }
 copied=0; kept=0; upgraded=0
 while IFS= read -r f; do
   t="$DEST/$f"
+  [ -n "$NOCI" ] && [[ "$f" == .github/* ]] && continue
   if [ -e "$t" ]; then
     # --upgrade replaces the kit's code (scripts) but never your config, rules, routing or skills.
     if [ "$UPGRADE" = "--upgrade" ] && [[ "$f" == .referee/scripts/* ]]; then cp "$SRC/$f" "$t"; upgraded=$((upgraded+1)); else kept=$((kept+1)); fi
@@ -31,13 +33,27 @@ const hookFile=c=>(c.match(/hooks.{1,6}(route|guard|log|stop-gate)\.mjs/)||[])[1
 for(const [ev,groups] of Object.entries(add)){cur.hooks[ev]??=[];
   for(const g of groups){const c=g.hooks[0].command,h=hookFile(c);
     cur.hooks[ev]=cur.hooks[ev].filter(x=>!(x.hooks||[]).some(k=>k.command!==c&&hookFile(k.command||"")===h));
-    if(!cur.hooks[ev].some(x=>(x.hooks||[]).some(k=>k.command===c)))cur.hooks[ev].push(g);}}
+    const same=cur.hooks[ev].find(x=>(x.hooks||[]).some(k=>k.command===c));
+    if(!same)cur.hooks[ev].push(g); else if(g.matcher)same.matcher=g.matcher;}}
 // Status line: add ours only if the repo has none. Never replace someone else'"'"'s.
 const sl=JSON.parse(fs.readFileSync(process.env.SRC+"/.claude/settings.json","utf8")).statusLine;
 if(sl&&!cur.statusLine)cur.statusLine=sl;
 else if(sl&&cur.statusLine&&!String(cur.statusLine.command||"").includes("statusline.mjs"))console.log("Kept your own status line. To show the referee too, see README > Status line.");
 fs.mkdirSync(process.env.DEST+"/.claude",{recursive:true});
 fs.writeFileSync(p,JSON.stringify(cur,null,2)+"\n");'
+
+# --upgrade: add settings that are new in this version to your config, without changing your values.
+if [ "$UPGRADE" = "--upgrade" ]; then SRC="$SRC" DEST="$DEST" node -e '
+const fs=require("fs"),p=process.env.DEST+"/.referee/config.json";
+const cur=JSON.parse(fs.readFileSync(p,"utf8")),kit=JSON.parse(fs.readFileSync(process.env.SRC+"/.referee/config.json","utf8"));
+const added=[];
+for(const [k,v] of Object.entries(kit)) if(!(k in cur)){cur[k]=v;added.push(k);}
+// Migrations moved from "never edit" to "add-only": new migrations allowed, existing ones still locked.
+if(added.includes("appendOnlyPaths")){const mig=["**/migrations/**","**/alembic/versions/**"];
+  const before=cur.protectedPaths.length;cur.protectedPaths=cur.protectedPaths.filter(x=>!mig.includes(x));
+  if(cur.protectedPaths.length<before)console.log("Migrations are now add-only: new migration files are allowed, existing ones stay locked.");}
+fs.writeFileSync(p,JSON.stringify(cur,null,2)+"\n");
+if(added.length)console.log("Added new settings to .referee/config.json: "+added.join(", "));'; fi
 
 # Detect the checks command if config has none (rules in .referee/scripts/detect.mjs).
 (cd "$DEST" && REFEREE_ROOT="$DEST" node -e '

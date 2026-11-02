@@ -46,6 +46,11 @@ if (cfg.verify && process.argv.includes('--full')) {
   add(r.ok, 'Checks pass right now', r.ok ? '' : r.out.split('\n').filter(Boolean).slice(-2).join(' | '), !r.ok);
 }
 
+// Settings from older versions
+const oldMig = (cfg.protectedPaths || []).filter(g => /migrations|alembic/.test(g));
+add(!oldMig.length, 'Migrations are add-only', oldMig.length ? `${oldMig.join(', ')} is still in protectedPaths, so new migrations are blocked too. Run install.sh --upgrade` : 'new migrations allowed, existing ones locked', !!oldMig.length);
+add(!!(cfg.secretPaths || []).length, 'Secrets files are not read', (cfg.secretPaths || []).length ? '.env and keys blocked; .env.example readable' : 'no secretPaths set. Run install.sh --upgrade', !(cfg.secretPaths || []).length);
+
 // gh
 const gh = sh('gh --version').ok;
 add(gh, 'GitHub CLI (gh)', gh ? '' : 'optional; needed for PRs and "method.mjs status"', !gh);

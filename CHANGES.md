@@ -2,6 +2,14 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-01 — Fixes from the first trial on a private repo
+
+- **Self-test works alongside your own hooks.** It found the referee's hooks by position, so 11 of 74 tests failed in a repo that already had a hook first. It now finds them by name.
+- **Migrations are add-only.** Creating a new migration is allowed; changing, moving or deleting an existing one is blocked (`appendOnlyPaths`). Previously every migration edit was blocked, including new files.
+- **Secrets aren't read.** The guard blocks reading or printing `.env` files and keys through Read, Grep or the shell (`secretPaths`). Checking a file exists, `source .env`, `--env-file`, and `.env.example` are fine.
+- **`install.sh --no-ci`** skips the GitHub workflow. **`--upgrade`** now adds new settings to your config (and moves migrations to add-only) without changing your values.
+- `doctor.mjs` flags old settings. 85 self-tests.
+
 ## 2026-11-01 — Field test on 4 public repos, and the fixes it forced
 
 Seven live Claude Code sessions on Next.js, Turborepo, FastAPI and Create React App repos. Full report: [FIELD-TEST.md](FIELD-TEST.md).

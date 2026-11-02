@@ -64,13 +64,18 @@ export function rel(file) {
   return path.relative(ROOT, path.resolve(ROOT, file || '')).split(path.sep).join('/');
 }
 
-// A pattern starting with "!" is an exception: "!**/.env.example" keeps templates editable.
-export function protectedMatch(file, cfg = config()) {
+// Path lists in .referee/config.json. A pattern starting with "!" is an exception ("!**/.env.example").
+export function matchList(file, pats = []) {
   const f = rel(file);
-  const pats = cfg.protectedPaths || [];
   if (pats.some(g => g.startsWith('!') && globToRegex(g.slice(1)).test(f))) return null;
   return pats.find(g => !g.startsWith('!') && globToRegex(g).test(f)) || null;
 }
+// protectedPaths: never edited. appendOnlyPaths: new files may be added, existing ones never changed
+// (migrations: a new migration is normal work; editing an applied one breaks every database that ran it).
+// secretPaths: never read, so secrets don't land in the agent's context, transcript or logs.
+export const protectedMatch = (file, cfg = config()) => matchList(file, cfg.protectedPaths);
+export const appendOnlyMatch = (file, cfg = config()) => matchList(file, cfg.appendOnlyPaths);
+export const secretMatch = (file, cfg = config()) => matchList(file, cfg.secretPaths);
 
 // Test files the user agreed (spec-first). { "<repo-relative path>": { hash, spec, at } }
 export function readLocks() {

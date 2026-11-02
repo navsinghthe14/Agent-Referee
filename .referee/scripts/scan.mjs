@@ -6,7 +6,7 @@
 // Facts come from files and git, never from guesses. Anything not found is said plainly.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, AGENT, config, git, sh, globToRegex, protectedMatch } from './lib.mjs';
+import { ROOT, AGENT, config, git, sh, globToRegex, protectedMatch, appendOnlyMatch } from './lib.mjs';
 
 const onboardedFile = path.join(AGENT, 'state', 'onboarded');
 if (process.argv.includes('--done')) {
@@ -66,7 +66,7 @@ const testTool = ['test', 'lint', 'typecheck', 'check', 'build'].filter(k => roo
 const migrationDirs = [...new Set(files.map(f => (f.match(/^(.*?\/?(?:migrations|alembic\/versions))\//) || [])[1]).filter(Boolean))].slice(0, 6);
 const envFiles = files.filter(f => /(^|\/)\.env(\.|$)/.test(f) && !/\.(example|sample|template)$/.test(f)).slice(0, 6);
 const infraDirs = [...new Set(files.map(f => (f.match(/^((?:.*\/)?(?:terraform|infra|infrastructure|k8s|helm|\.github\/workflows))\//) || [])[1]).filter(Boolean))].slice(0, 6);
-const isProtected = p => !!(protectedMatch(p, cfg) || protectedMatch(p + '/x', cfg));
+const isProtected = p => !!(protectedMatch(p, cfg) || protectedMatch(p + '/x', cfg) || appendOnlyMatch(p + '/x', cfg));
 const unprotected = [...infraDirs].filter(d => !isProtected(d));
 
 // Guidance and knowledge
@@ -88,7 +88,7 @@ export function summaryLine() {
   bits.push(monorepo ? `${monorepo}, ${packages.length} packages` : (languages[0] || '').replace(/ \(.*/, '') || `${files.length} files`);
   if (frameworks.length) bits.push(frameworks.slice(0, 4).join(', '));
   bits.push(cfg.verify ? `checks: ${cfg.verify}` : '⚠ no checks command set');
-  if (migrationDirs.length) bits.push(`protecting ${migrationDirs.slice(0, 2).join(', ')}`);
+  if (migrationDirs.length) bits.push(`migrations add-only: ${migrationDirs.slice(0, 2).join(', ')}`);
   if (unprotected.length) bits.push(`⚠ not protected: ${unprotected.join(', ')}`);
   return bits.join(' · ');
 }
@@ -134,7 +134,9 @@ L.push('');
 L.push('## What the referee will block here', '');
 const prot = (cfg.protectedPaths || []).filter(g => !g.startsWith('.referee') && !g.startsWith('!') && g !== '.claude/settings.json');
 const exceptions = (cfg.protectedPaths || []).filter(g => g.startsWith('!')).map(g => g.slice(1));
-L.push(`- Edits to ${prot.map(g => `\`${g}\``).join(', ')}${migrationDirs.length ? `, which covers ${migrationDirs.map(d => `\`${d}\``).join(', ')}` : ''}${exceptions.length ? `. Templates stay editable: ${exceptions.map(g => `\`${g}\``).join(', ')}` : ''}`);
+L.push(`- Edits to ${prot.map(g => `\`${g}\``).join(', ')}${exceptions.length ? `. Templates stay editable: ${exceptions.map(g => `\`${g}\``).join(', ')}` : ''}`);
+if ((cfg.appendOnlyPaths || []).length) L.push(`- Changing existing migrations${migrationDirs.length ? ` in ${migrationDirs.map(d => `\`${d}\``).join(', ')}` : ''}. Adding new ones is fine`);
+if ((cfg.secretPaths || []).length) L.push('- Reading secrets files (`.env`, keys). Checking they exist, loading them into a command, and reading `.env.example` are fine');
 L.push(`- Merging, or pushing to \`${cfg.mainBranch || 'main'}\`, unless you say "full send"`);
 L.push('- Skipping checks with `--no-verify`, and editing the referee\'s own files');
 if (unprotected.length) L.push(`- ⚠ **Not protected yet:** ${unprotected.map(d => `\`${d}\``).join(', ')}. Add \`"${unprotected[0]}/**"\` to \`protectedPaths\` in \`.referee/config.json\` if agents shouldn't touch it.`);

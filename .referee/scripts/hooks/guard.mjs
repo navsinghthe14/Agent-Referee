@@ -2,7 +2,9 @@
 // PreToolUse hook: hard walls. Exit 2 blocks the call and shows the reason to the agent.
 // Scope: this stops mistakes and casual workarounds. It is not a sandbox; a determined agent can
 // obfuscate a shell command. The session audit and human review cover the rest.
-import { config, readStdin, rel, protectedMatch, fullSendActive, logEvent, git, effectiveMode, lockedMatch } from '../lib.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ROOT, config, readStdin, rel, protectedMatch, appendOnlyMatch, secretMatch, fullSendActive, logEvent, git, effectiveMode, lockedMatch } from '../lib.mjs';
 
 // Paths whose mere mention in a shell command is blocked (the agent never needs them).
 const STATE_PATTERN = /\.referee[\\/]+state|full-send/;
@@ -14,6 +16,11 @@ export function pathTokens(cmd) {
     .map(t => t.replace(/^\.\//, ''))
     .filter(t => /[\w.]/.test(t) && !t.startsWith('-'));
 }
+
+// Shell commands that only look at a file's name or existence, never its contents.
+// Loading .env into a command (source, --env-file) passes values along without printing them, so it's allowed.
+const NAME_ONLY = /^\s*(?:(?:ls|stat|test|file|wc|du|source|git\s+(?:check-ignore|status|ls-files|diff\s+--stat|log\s+--stat))\b|\[\s|\.\s|set\s+-a\b)|--env-file[ =]/;
+const exists = f => fs.existsSync(path.resolve(ROOT, f));
 
 export function pushes(cmd, currentBranch) {
   const out = [];
@@ -66,6 +73,18 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
     const hit = protectedMatch(file, cfg);
     if (hit) block(`${rel(file)} is protected (matches "${hit}" in .referee/config.json). Ask the human to change it.`);
   }
+  // Migrations: adding a new one is normal work; changing an existing (applied) one is not.
+  if (file && process.env.REFEREE_ALLOW_PROTECTED !== '1' && ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'].includes(tool)) {
+    const ao = appendOnlyMatch(file, cfg);
+    if (ao && (tool !== 'Write' || exists(file))) block(`${rel(file)} is an existing migration (matches "${ao}"): it may already have run on a database, so changing it breaks those databases. Create a new migration instead.`);
+  }
+  // Secrets: never read them, so they don't end up in the agent's context, transcript or logs.
+  // (Glob is fine: it lists names, never contents.)
+  if (['Read', 'Grep', 'NotebookRead'].includes(tool)) {
+    const target = [ti.file_path, ti.notebook_path, ti.path, ti.glob].filter(Boolean);
+    const hit = target.map(t => [t, secretMatch(t, cfg) || secretMatch(String(t).replace(/^\*\*\//, ''), cfg)]).find(([, g]) => g);
+    if (hit) block(`${rel(hit[0])} may hold secrets (matches "${hit[1]}" in secretPaths), so it isn't read. For variable names, read .env.example. If you need a value, ask the user.`);
+  }
   // spec-first: tests the user agreed can't be edited to make them pass.
   if (file) {
     const lk = lockedMatch(file);
@@ -79,6 +98,16 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
     if (process.env.REFEREE_ALLOW_PROTECTED !== '1' && WRITE_OP.test(cmd)) {
       const hit = pathTokens(cmd).map(t => [t, protectedMatch(t, cfg)]).find(([, g]) => g);
       if (hit) block(`This command writes near ${rel(hit[0])}, which is protected (matches "${hit[1]}"). Ask the human to change it.`);
+    }
+    // Existing migrations: no rewriting, moving or deleting from the shell. New files are fine.
+    if (process.env.REFEREE_ALLOW_PROTECTED !== '1' && (WRITE_OP.test(cmd) || /\bgit\s+(checkout|restore|rm|mv)\b/.test(cmd))) {
+      const hit = pathTokens(cmd).map(t => [t, appendOnlyMatch(t, cfg)]).find(([t, g]) => g && exists(t));
+      if (hit) block(`This command changes ${rel(hit[0])}, an existing migration (matches "${hit[1]}"). Create a new migration instead.`);
+    }
+    // Secrets: a command that would print or copy a secrets file is blocked; checking it exists is fine.
+    for (const seg of cmd.split(/&&|\|\||;|\|/)) {
+      const hit = pathTokens(seg).map(t => [t, secretMatch(t, cfg)]).find(([, g]) => g);
+      if (hit && !NAME_ONLY.test(seg)) block(`This command reads ${rel(hit[0])}, which may hold secrets (matches "${hit[1]}" in secretPaths). For variable names, read .env.example. If you need a value, ask the user.`);
     }
     if (WRITE_OP.test(cmd) || /\bgit\s+(checkout|restore|rm|mv)\b/.test(cmd)) {
       const lk = pathTokens(cmd).map(t => lockedMatch(t)).find(Boolean);

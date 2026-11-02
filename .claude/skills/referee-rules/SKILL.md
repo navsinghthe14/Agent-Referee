@@ -12,6 +12,8 @@ Every thread starts with no memory. Your job is to find what you need, not to be
 | Rule | Enforced by |
 | --- | --- |
 | Protected paths (see `.referee/config.json`) are never edited, by tool or by shell | `.referee/scripts/hooks/guard.mjs` blocks the call |
+| Existing migrations are never changed; add a new migration instead | `guard.mjs` (`appendOnlyPaths`) |
+| Secrets files (`.env`, keys) are never read or printed. Read `.env.example` for variable names; ask the user for a value | `guard.mjs` (`secretPaths`) |
 | Nothing merges or pushes to the main branch unless the user said "full send"; you can't set full send yourself | `guard.mjs` |
 | You can't finish a turn that changed files while the repo's quick check fails | `.referee/scripts/hooks/stop-gate.mjs` runs `config.verify` |
 | Common requests name their skill | `.referee/scripts/hooks/route.mjs` + `.referee/routing.json` |

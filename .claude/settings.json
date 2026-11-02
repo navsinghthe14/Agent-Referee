@@ -4,7 +4,7 @@
       { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='route';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','route.mjs')))\"" }] }
     ],
     "PreToolUse": [
-      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='guard';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','guard.mjs')))\"" }] }
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Read|Grep", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='guard';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','guard.mjs')))\"" }] }
     ],
     "PostToolUse": [
       { "matcher": "*", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='log';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','log.mjs')))\"" }] }

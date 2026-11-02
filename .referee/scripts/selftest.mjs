@@ -22,9 +22,19 @@ fs.writeFileSync(path.join(tmp, 'a.txt'), 'x');
 run('git', ['add', '-A']); run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init']);
 run('git', ['checkout', '-qb', 'feature']);
 
+// Put another tool's hook first on every event, as a real repo may have (field-trial bug).
+{
+  const sp = path.join(tmp, '.claude', 'settings.json');
+  const sj = JSON.parse(fs.readFileSync(sp, 'utf8'));
+  for (const ev of Object.keys(sj.hooks)) sj.hooks[ev].unshift({ matcher: '*', hooks: [{ type: 'command', command: 'node -e "process.exit(0)"' }] });
+  fs.writeFileSync(sp, JSON.stringify(sj));
+}
 const settings = JSON.parse(fs.readFileSync(path.join(tmp, '.claude', 'settings.json'), 'utf8')).hooks;
-const launcher = { route: settings.UserPromptSubmit, guard: settings.PreToolUse, log: settings.PostToolUse, stop: settings.Stop }
-  ;for (const k in launcher) launcher[k] = launcher[k][0].hooks[0].command;
+// Find each referee hook by its file name, not its position: a repo may already have its own hooks
+// on the same events (field-trial bug: 11 of 74 tests failed because another hook came first).
+const findHook = (ev, file) => (settings[ev] || []).flatMap(g => g.hooks || []).find(h => (h.command || '').includes(file))?.command;
+const launcher = { route: findHook('UserPromptSubmit', 'route.mjs'), guard: findHook('PreToolUse', 'guard.mjs'), log: findHook('PostToolUse', 'log.mjs'), stop: findHook('Stop', 'stop-gate.mjs') };
+for (const [k, v] of Object.entries(launcher)) if (!v) { console.log(`✗ referee ${k} hook not found in .claude/settings.json. Re-run install.sh`); process.exit(1); }
 const env = { ...process.env, CLAUDE_PROJECT_DIR: tmp, REFEREE_ROOT: tmp };
 delete env.REFEREE_HOOK; delete env.REFEREE_ALLOW_PROTECTED;
 const hook = (name, payload) => spawnSync(launcher[name], { cwd: tmp, shell: true, encoding: 'utf8', input: JSON.stringify(payload), env });
@@ -34,6 +44,9 @@ const t = (name, ok, detail = '') => { console.log(`${ok ? '✓' : '✗'} ${name
 const guard = (tool, tool_input) => hook('guard', { session_id: 'g', tool_name: tool, tool_input }).status;
 const edit = f => guard('Edit', { file_path: path.join(tmp, f) });
 const bash = c => guard('Bash', { command: c });
+
+// Existing migrations for the append-only tests (a migration that already ran).
+for (const f of ['supabase/migrations/001.sql', 'apps/web/prisma/migrations/x/migration.sql', 'backend/app/alembic/versions/1a2b_add_bio.py']) { fs.mkdirSync(path.dirname(path.join(tmp, f)), { recursive: true }); fs.writeFileSync(path.join(tmp, f), '-- applied'); }
 
 // 1. Protected globs ending in ** (original bug: never matched)
 t('blocks Edit of supabase/migrations/001.sql', edit('supabase/migrations/001.sql') === 2);
@@ -51,7 +64,20 @@ t('blocks self-granting full send (node)', bash(`node -e "require('fs').writeFil
 t('blocks echo >> .env', bash('echo X=1 >> .env') === 2);
 t('blocks sed -i on a migration', bash('sed -i s/a/b/ supabase/migrations/001.sql') === 2);
 t('blocks rm of guard.mjs', bash('rm .referee/scripts/hooks/guard.mjs') === 2);
-t('allows reading .env', bash('cat .env') === 0);
+// Secrets (field-trial ask: enforce "never print secrets")
+t('blocks printing .env (cat)', bash('cat .env') === 2);
+t('blocks grep inside .env', bash('grep API_KEY apps/web/.env.local') === 2);
+t('blocks copying .env', bash('cp .env /tmp/x') === 2);
+t('blocks the Read tool on .env', guard('Read', { file_path: path.join(tmp, '.env') }) === 2);
+t('blocks the Grep tool on .env', guard('Grep', { pattern: 'KEY', path: path.join(tmp, '.env') }) === 2);
+t('blocks reading a private key', guard('Read', { file_path: path.join(tmp, 'certs/server.key') }) === 2);
+t('allows reading .env.example', guard('Read', { file_path: path.join(tmp, '.env.example') }) === 0 && bash('cat .env.example') === 0);
+t('allows checking .env exists, and loading it into a command', bash('ls -la .env') === 0 && bash('[ -f .env ] && echo yes') === 0 && bash('set -a; source .env; npm test') === 0 && bash('docker compose --env-file .env up -d') === 0);
+// Migrations are add-only (field-trial bug: creating a new migration was blocked)
+t('allows creating a new migration (Write)', guard('Write', { file_path: path.join(tmp, 'supabase/migrations/002_add_bio.sql'), content: 'x' }) === 0);
+t('allows creating a new migration from the shell', bash('cat > supabase/migrations/003_new.sql <<EOF\nselect 1;\nEOF') === 0);
+t('blocks overwriting an existing migration (Write)', guard('Write', { file_path: path.join(tmp, 'supabase/migrations/001.sql'), content: 'x' }) === 2);
+t('blocks deleting an existing migration', bash('rm supabase/migrations/001.sql') === 2);
 t('allows running method.mjs status', bash('node .referee/scripts/method.mjs status') === 0);
 t('blocks merge via gh api', bash('gh api -X PUT repos/o/r/pulls/1/merge') === 2);
 t('blocks gh pr merge', bash('gh pr merge 1 --squash') === 2);
