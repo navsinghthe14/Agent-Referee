@@ -119,7 +119,8 @@ How the referee will work here
   ...
 
 What the referee will block here
-  - Edits to **/migrations/** (covers supabase/migrations) and .env files
+  - Changing existing migrations in supabase/migrations (new ones are fine)
+  - Editing or reading .env files (.env.example is fine)
   - Merging, or pushing to main, unless you say "full send"
   - ⚠ Not protected yet: infra. Want it protected?
 ```

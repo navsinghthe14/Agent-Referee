@@ -36,7 +36,7 @@ Two caveats in the README were settled by these sessions: Claude Code's hook inp
 | taxonomy (live) | Sent back repeatedly when nothing had changed | Sent back again only if the agent changed code since the last try |
 | FastAPI | `bun.lock` not recognised; checks used `npm run` | bun detected |
 | FastAPI | The Python backend (ruff, mypy, pytest) wasn't checked at all | Python checks detected, through uv or poetry; pytest only in the full run, since it often needs a database |
-| FastAPI | Alembic migrations (`alembic/versions/`) weren't protected | Protected by default, and the scan finds them |
+| FastAPI | Alembic migrations (`alembic/versions/`) weren't protected | Protected by default, and the scan finds them. (A later private-repo trial made migrations add-only: new ones allowed, existing ones locked.) |
 | FastAPI | The scan showed "Python project" only | It reads dependencies: FastAPI, Django, Flask, SQLModel, SQLAlchemy, Alembic… |
 | realworld | `react-scripts test` starts in watch mode and would hang the stop hook | Checks run with `CI=1`, like CI does |
 | realworld | A `test` script with no test files fails on every turn | Left out of the checks, with a note |
