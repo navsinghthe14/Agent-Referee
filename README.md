@@ -10,7 +10,7 @@ Not with more prompts. With code it can't talk its way past.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Works with Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-orange?style=flat-square)
-![Self-tests](https://img.shields.io/badge/self--tests-64%2F64%20passing-brightgreen?style=flat-square)
+![Self-tests](https://img.shields.io/badge/self--tests-74%2F74%20passing-brightgreen?style=flat-square)
 ![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square)
 ![Windows · macOS · Linux](https://img.shields.io/badge/os-windows%20%C2%B7%20macos%20%C2%B7%20linux-lightgrey?style=flat-square)
 
@@ -20,14 +20,15 @@ Not with more prompts. With code it can't talk its way past.
 
 | | |
 | :---: | --- |
-| **100%** | of the risky moves in our test suite are **blocked**: 27 of 27, including pushing to `main`, editing migrations, writing `.env`, merging without permission, `--no-verify`, the agent switching on "full send" by itself, and **rewriting tests you agreed so they pass** |
-| **0%** | false alarms on the 7 everyday actions we tested, like pushing a feature branch, reading `.env`, running your checks and editing ordinary code |
+| **100%** | of the risky moves in our test suite are **blocked**: 29 of 29, including pushing to `main`, editing migrations, writing `.env`, merging without permission, `--no-verify`, the agent switching on "full send" by itself, and **rewriting tests you agreed so they pass** |
+| **0%** | false alarms on the 8 everyday actions we tested, like pushing a feature branch, reading `.env`, editing `.env.example`, running your checks and editing ordinary code |
 | **100%** | of sessions get a **score you can see**, after every single message |
 | **0** | turns can end with your checks failing. The agent has to fix them or tell you exactly what's broken |
 | **0 sec** | added to chat-only turns. Checks run only when code changed, and in a monorepo only for the packages you touched |
+| **5 of 7** | live Claude Code sessions on [4 public repos](FIELD-TEST.md) (Next.js, Turborepo, FastAPI, React) went the way they should. The other 2 exposed real bugs, which we fixed; both passed when re-run |
 | **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
-<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (64 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
+<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (74 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
 
 <div align="center">
 
@@ -87,7 +88,7 @@ The installer checks itself before you open Claude Code:
 
 Then open Claude Code in your repo and **send any message.** That's it.
 
-> **No config needed.** It finds your checks command by itself: `npm`/`pnpm`/`yarn` scripts, or `turbo --affected` in a monorepo.
+> **No config needed.** It finds your checks command by itself: `npm`/`pnpm`/`yarn`/`bun` scripts, `turbo --affected` in a monorepo, and `ruff`/`mypy`/`pytest` for Python (through `uv` or `poetry`). It skips a `test` script that has no tests yet, and runs everything with `CI=1` so test runners don't hang in watch mode.
 
 **Want proof it helps before you rely on it?** Add `--baseline=7`. For a week the referee only watches, then it switches on by itself, and you get your own before-and-after. [How it works ↓](#6-your-own-before-and-after)
 
@@ -120,7 +121,13 @@ What the referee will block here
   - ⚠ Not protected yet: infra. Want it protected?
 ```
 
-Every line is read from **your** repo. It doesn't guess. It then asks once whether you'd like to [measure your "before"](#6-your-own-before-and-after) first, and carries on with what you asked for.
+Every line is read from **your** repo. It doesn't guess. The hook runs this scan itself and shows you a one-line summary after your first message, so it's never skipped:
+
+```
+⚖ Referee scanned this repo: Turborepo, 13 packages · Next.js, React, Drizzle · checks: pnpm turbo run typecheck lint --affected · ⚠ not protected: .github/workflows
+```
+
+The agent also shows you the full tables. It then asks once whether you'd like to [measure your "before"](#6-your-own-before-and-after) first, and carries on with what you asked for.
 
 ### 2. A score after every message
 
@@ -258,7 +265,7 @@ Most skill packs are **prompts that hope the model complies.** Agent Referee is 
 | **Blows the whistle** (blocks bad moves) | ✗ | ✓ 4 hooks, in plain Node |
 | **Keeps score** (grades the session) | ✗ | ✓ every message |
 | Learns from mistakes | Write more prompt | Each mistake becomes a graded rule |
-| Tested | Rarely | **64 self-tests + 39 routing evals, run in CI** |
+| Tested | Rarely | **74 self-tests + 39 routing evals, run in CI** |
 
 **The philosophy:** if code can check it, code checks it. Only judgment calls are left to the agent.
 
@@ -317,7 +324,7 @@ node .referee/scripts/selftest.mjs         # Does the referee itself work?
 | --- | --- | --- |
 | `verify` | auto-detected | Quick checks run before the agent can finish |
 | `verifyFull` | auto-detected | Full suite, used for "ready to merge" and CI |
-| `protectedPaths` | `.env*`, `**/migrations/**`, referee files | Paths the agent can't edit |
+| `protectedPaths` | `.env*`, `**/migrations/**`, `**/alembic/versions/**`, referee files | Paths the agent can't edit. Start a pattern with `!` for an exception: `.env.example` and other templates stay editable by default |
 | `mainBranch` | `main` | The branch that needs "full send" |
 | `fullSendHours` | `6` | How long "full send" lasts |
 | `stopGateMaxBlocks` | `3` | Retries on failing checks before it must stop and tell you |
@@ -341,6 +348,12 @@ The installer never replaces yours. To show both, set `statusLine.command` in `.
 
 **Will it slow me down?**
 Checks run only when a turn actually changed code, and in a monorepo only for the packages you touched. Chat-only turns cost nothing.
+
+**Has it been tested on real code?**
+Yes: [FIELD-TEST.md](FIELD-TEST.md) has 7 live Claude Code sessions on 4 public repos (Next.js + Prisma, a Turborepo, FastAPI + React, Create React App), what went wrong and what we fixed. It doesn't replace real users: that's what `--baseline=7` is for.
+
+**What if my checks can't run (dependencies not installed)?**
+The referee says "checks couldn't run" and lets the agent finish. It doesn't send the agent back to "fix" it, so the agent won't start installing packages on its own.
 
 **Is it a security sandbox?**
 No, and we won't pretend it is. It stops mistakes and casual workarounds. A deliberately disguised command could still get past it. The score and your PR review are the backstop.

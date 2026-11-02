@@ -9,10 +9,14 @@
     "**/.env",
     "**/.env.*",
     "**/migrations/**",
+    "**/alembic/versions/**",
     ".referee/scripts/**",
     ".referee/state/**",
     ".referee/config.json",
-    ".claude/settings.json"
+    ".claude/settings.json",
+    "!**/.env.example",
+    "!**/.env.sample",
+    "!**/.env.template"
   ],
   "reviewer": {
     "kind": "subagent",

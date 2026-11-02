@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { ROOT, config, sh, rel, readLocks } from './lib.mjs';
+import { ROOT, config, rel, readLocks, runVerify } from './lib.mjs';
 
 const locksFile = path.join(ROOT, '.referee', 'state', 'locks.json');
 const hash = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex');
@@ -56,7 +56,7 @@ if ((process.argv[1] || '').endsWith('spec.mjs')) {
     const spec = parseSpec(specArg);
     const cfg = config();
     const v = cfg.verifyFull || cfg.verify;
-    const run = v ? sh(v) : null;
+    const run = v ? runVerify(v) : null;
     const locks = checkLocks().filter(x => spec.files.includes(x.file));
     const plain = c => c.replace(/\s*·\s*test:.*$/, '').replace(/^\[you said\]\s*(.*)$/, '$1 (you said)').replace(/^\[assumed\]\s*(.*)$/, '$1 (assumed — say if that\'s wrong)').replace(/^\[obvious\]\s*/, '');
     console.log(`⚖ ${spec.title}\n`);

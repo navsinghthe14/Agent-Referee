@@ -39,31 +39,18 @@ else if(sl&&cur.statusLine&&!String(cur.statusLine.command||"").includes("status
 fs.mkdirSync(process.env.DEST+"/.claude",{recursive:true});
 fs.writeFileSync(p,JSON.stringify(cur,null,2)+"\n");'
 
-# Detect the verify command if config has none.
-# Turborepo: run only the packages this change affects (--affected), so the Stop hook stays fast.
-DEST="$DEST" node -e '
-const fs=require("fs"),d=process.env.DEST,cp=d+"/.referee/config.json";
+# Detect the checks command if config has none (rules in .referee/scripts/detect.mjs).
+(cd "$DEST" && REFEREE_ROOT="$DEST" node -e '
+const fs=require("fs"),cp=process.env.REFEREE_ROOT+"/.referee/config.json";
 const cfg=JSON.parse(fs.readFileSync(cp,"utf8"));
-if(!cfg.verify&&fs.existsSync(d+"/package.json")){
-  const s=JSON.parse(fs.readFileSync(d+"/package.json","utf8")).scripts||{};
-  const pnpm=fs.existsSync(d+"/pnpm-lock.yaml"),yarn=fs.existsSync(d+"/yarn.lock");
-  if(fs.existsSync(d+"/turbo.json")){
-    let tj={};try{tj=JSON.parse(fs.readFileSync(d+"/turbo.json","utf8"));}catch{}
-    const tasks=Object.keys(tj.tasks||tj.pipeline||{});
-    const run=pnpm?"pnpm turbo run":yarn?"yarn turbo run":"npx turbo run";
-    const fast=["typecheck","lint","check"].filter(k=>tasks.includes(k));
-    const full=[...fast,...(tasks.includes("test")?["test"]:[])];
-    if(fast.length)cfg.verify=`${run} ${fast.join(" ")} --affected`;
-    if(full.length)cfg.verifyFull=`${run} ${full.join(" ")} --affected`;
-    if(!fast.length&&full.length)cfg.verify=cfg.verifyFull;
-  } else {
-    const pm=pnpm?"pnpm":yarn?"yarn":"npm run";
-    const fast=["typecheck","lint","check"].filter(k=>s[k]).map(k=>`${pm} ${k}`);
-    const full=[...fast,...(s.test?[`${pm} test`]:[])];
-    if(fast.length||full.length){cfg.verify=(fast.length?fast:full).join(" && ");cfg.verifyFull=full.join(" && ");}
-  }
-  if(cfg.verify){fs.writeFileSync(cp,JSON.stringify(cfg,null,2)+"\n");console.log("verify     = "+cfg.verify+"\nverifyFull = "+cfg.verifyFull);}}
-if(!cfg.verify)console.log("Set \"verify\" in .referee/config.json (e.g. \"cargo check && cargo test\").");'
+if(cfg.verify){process.exit(0);}
+import(require("url").pathToFileURL(process.env.REFEREE_ROOT+"/.referee/scripts/detect.mjs")).then(({detect})=>{
+  const d=detect();
+  for(const n of d.notes)console.log("note: "+n);
+  if(!d.verify){console.log("Set \"verify\" in .referee/config.json (e.g. \"cargo check && cargo test\").");return;}
+  cfg.verify=d.verify;cfg.verifyFull=d.verifyFull;
+  fs.writeFileSync(cp,JSON.stringify(cfg,null,2)+"\n");
+  console.log("verify     = "+cfg.verify+"\nverifyFull = "+cfg.verifyFull);});')
 
 # Baseline: observe for N days (nothing blocked), then enforce automatically.
 if [ -n "$BASELINE" ]; then DEST="$DEST" DAYS="$BASELINE" node -e '

@@ -6,7 +6,7 @@
 // Facts come from files and git, never from guesses. Anything not found is said plainly.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, AGENT, config, git, sh, globToRegex } from './lib.mjs';
+import { ROOT, AGENT, config, git, sh, globToRegex, protectedMatch } from './lib.mjs';
 
 const onboardedFile = path.join(AGENT, 'state', 'onboarded');
 if (process.argv.includes('--done')) {
@@ -46,7 +46,13 @@ const deps = new Set();
 for (const f of ['package.json', ...pkgFiles]) { const j = readJson(f); for (const k of Object.keys({ ...(j?.dependencies || {}), ...(j?.devDependencies || {}) })) deps.add(k); }
 const FW = [['next', 'Next.js'], ['react', 'React'], ['vue', 'Vue'], ['svelte', 'Svelte'], ['@angular/core', 'Angular'], ['express', 'Express'], ['fastify', 'Fastify'], ['@nestjs/core', 'NestJS'], ['prisma', 'Prisma'], ['drizzle-orm', 'Drizzle'], ['@supabase/supabase-js', 'Supabase'], ['@anthropic-ai/sdk', 'Anthropic SDK'], ['openai', 'OpenAI SDK'], ['tailwindcss', 'Tailwind'], ['vitest', 'Vitest'], ['jest', 'Jest'], ['@playwright/test', 'Playwright'], ['cypress', 'Cypress']];
 const frameworks = FW.filter(([d]) => deps.has(d)).map(([, n]) => n);
-if (exists('requirements.txt') || exists('pyproject.toml')) frameworks.push('Python project');
+// Python: read the dependency names from every pyproject.toml / requirements.txt in git
+const pyText = files.filter(f => /(^|\/)(pyproject\.toml|requirements[^/]*\.txt)$/.test(f)).map(f => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8').toLowerCase(); } catch { return ''; } }).join('\n');
+if (pyText) {
+  const PY = [['fastapi', 'FastAPI'], ['django', 'Django'], ['flask', 'Flask'], ['sqlmodel', 'SQLModel'], ['sqlalchemy', 'SQLAlchemy'], ['alembic', 'Alembic'], ['pydantic', 'Pydantic'], ['pytest', 'pytest'], ['ruff', 'Ruff']];
+  const found = PY.filter(([d]) => new RegExp(`(^|[\\s"'\\[])${d}([\\s<>=~!\\[",']|$)`, 'm').test(pyText)).map(([, n]) => n);
+  frameworks.push(...(found.length ? found : ['Python project']));
+}
 if (exists('Cargo.toml')) frameworks.push('Rust (Cargo)');
 if (exists('go.mod')) frameworks.push('Go modules');
 if (exists('supabase') && !frameworks.includes('Supabase')) frameworks.push('Supabase');
@@ -57,10 +63,10 @@ const turboTasks = Object.keys((readJson('turbo.json') || {}).tasks || (readJson
 const testTool = ['test', 'lint', 'typecheck', 'check', 'build'].filter(k => rootScripts[k] || turboTasks.includes(k));
 
 // Sensitive places
-const migrationDirs = [...new Set(files.map(f => (f.match(/^(.*?\/?migrations)\//) || [])[1]).filter(Boolean))].slice(0, 6);
-const envFiles = files.filter(f => /(^|\/)\.env(\.|$)/.test(f)).slice(0, 6);
+const migrationDirs = [...new Set(files.map(f => (f.match(/^(.*?\/?(?:migrations|alembic\/versions))\//) || [])[1]).filter(Boolean))].slice(0, 6);
+const envFiles = files.filter(f => /(^|\/)\.env(\.|$)/.test(f) && !/\.(example|sample|template)$/.test(f)).slice(0, 6);
 const infraDirs = [...new Set(files.map(f => (f.match(/^((?:.*\/)?(?:terraform|infra|infrastructure|k8s|helm|\.github\/workflows))\//) || [])[1]).filter(Boolean))].slice(0, 6);
-const isProtected = p => (cfg.protectedPaths || []).some(g => globToRegex(g).test(p) || globToRegex(g).test(p + '/x'));
+const isProtected = p => !!(protectedMatch(p, cfg) || protectedMatch(p + '/x', cfg));
 const unprotected = [...infraDirs].filter(d => !isProtected(d));
 
 // Guidance and knowledge
@@ -76,6 +82,17 @@ const reviewer = cfg.reviewer?.kind === 'cli' && cfg.reviewer.cli ? `the \`${cfg
 
 const facts = { languages, pm, monorepo, packages, frameworks, scripts: testTool, verify: cfg.verify, migrationDirs, envFiles, infraDirs, unprotected, guidance, kbCount, ci, branch, commits, hasGh, files: files.length };
 if (process.argv.includes('--json')) { console.log(JSON.stringify(facts, null, 2)); process.exit(0); }
+// One line for the user, shown by the stop hook after the first message.
+export function summaryLine() {
+  const bits = [];
+  bits.push(monorepo ? `${monorepo}, ${packages.length} packages` : (languages[0] || '').replace(/ \(.*/, '') || `${files.length} files`);
+  if (frameworks.length) bits.push(frameworks.slice(0, 4).join(', '));
+  bits.push(cfg.verify ? `checks: ${cfg.verify}` : '⚠ no checks command set');
+  if (migrationDirs.length) bits.push(`protecting ${migrationDirs.slice(0, 2).join(', ')}`);
+  if (unprotected.length) bits.push(`⚠ not protected: ${unprotected.join(', ')}`);
+  return bits.join(' · ');
+}
+if (process.argv.includes('--summary')) { console.log(summaryLine()); process.exit(0); }
 
 // ---- Markdown ----
 const L = [];
@@ -115,8 +132,9 @@ L.push(`| **method-upkeep** | "run the session audit" | Shows scores across sess
 L.push('');
 
 L.push('## What the referee will block here', '');
-const prot = (cfg.protectedPaths || []).filter(g => !g.startsWith('.referee') && g !== '.claude/settings.json');
-L.push(`- Edits to ${prot.map(g => `\`${g}\``).join(', ')}${migrationDirs.length ? `, which covers ${migrationDirs.map(d => `\`${d}\``).join(', ')}` : ''}`);
+const prot = (cfg.protectedPaths || []).filter(g => !g.startsWith('.referee') && !g.startsWith('!') && g !== '.claude/settings.json');
+const exceptions = (cfg.protectedPaths || []).filter(g => g.startsWith('!')).map(g => g.slice(1));
+L.push(`- Edits to ${prot.map(g => `\`${g}\``).join(', ')}${migrationDirs.length ? `, which covers ${migrationDirs.map(d => `\`${d}\``).join(', ')}` : ''}${exceptions.length ? `. Templates stay editable: ${exceptions.map(g => `\`${g}\``).join(', ')}` : ''}`);
 L.push(`- Merging, or pushing to \`${cfg.mainBranch || 'main'}\`, unless you say "full send"`);
 L.push('- Skipping checks with `--no-verify`, and editing the referee\'s own files');
 if (unprotected.length) L.push(`- ⚠ **Not protected yet:** ${unprotected.map(d => `\`${d}\``).join(', ')}. Add \`"${unprotected[0]}/**"\` to \`protectedPaths\` in \`.referee/config.json\` if agents shouldn't touch it.`);

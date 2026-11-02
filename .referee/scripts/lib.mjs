@@ -13,8 +13,25 @@ export function config() {
 }
 
 export function sh(cmd, opts = {}) {
-  const r = spawnSync(cmd, { cwd: ROOT, shell: true, encoding: 'utf8', timeout: opts.timeout || 240000 });
-  return { ok: r.status === 0, status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  const r = spawnSync(cmd, { cwd: ROOT, shell: true, encoding: 'utf8', timeout: opts.timeout || 240000, env: opts.env ? { ...process.env, ...opts.env } : process.env });
+  return { ok: r.status === 0, status: r.status, out: (r.stdout || '') + (r.stderr || ''), timedOut: r.error?.code === 'ETIMEDOUT' };
+}
+
+// Run the repo's checks the way CI does: CI=1 stops test runners (Jest, Vitest, Create React App)
+// from starting in watch mode and waiting forever.
+// "setup" = the checks couldn't run at all (tools or dependencies not installed). That's not the code's
+// fault, so the stop gate reports it instead of sending the agent back to "fix" it.
+export function runVerify(cmd) {
+  const r = sh(cmd, { env: { CI: '1' } });
+  const missingDeps = (fs.existsSync(path.join(ROOT, 'package.json')) && !fs.existsSync(path.join(ROOT, 'node_modules')));
+  const setup = !r.ok && (
+    r.status === 127 ||
+    /command not found|is not recognized as an internal or external command|Failed to spawn|No such file or directory \(os error 2\)/i.test(r.out) ||
+    (missingDeps && /Cannot find module|MODULE_NOT_FOUND|not found/i.test(r.out)) ||
+    (/No module named/.test(r.out) && !fs.existsSync(path.join(ROOT, '.venv')))
+  );
+  const missing = [...new Set([...(r.out.matchAll(/(?:sh: \d+: |bash: )?([\w@./-]+): (?:command )?not found/g))].map(m => m[1]).filter(x => !/^(sh|bash|line)$/.test(x)))].slice(0, 3);
+  return { ...r, setup: !!setup, missing };
 }
 
 export function git(args) {
@@ -47,9 +64,12 @@ export function rel(file) {
   return path.relative(ROOT, path.resolve(ROOT, file || '')).split(path.sep).join('/');
 }
 
+// A pattern starting with "!" is an exception: "!**/.env.example" keeps templates editable.
 export function protectedMatch(file, cfg = config()) {
   const f = rel(file);
-  return (cfg.protectedPaths || []).find(g => globToRegex(g).test(f)) || null;
+  const pats = cfg.protectedPaths || [];
+  if (pats.some(g => g.startsWith('!') && globToRegex(g.slice(1)).test(f))) return null;
+  return pats.find(g => !g.startsWith('!') && globToRegex(g).test(f)) || null;
 }
 
 // Test files the user agreed (spec-first). { "<repo-relative path>": { hash, spec, at } }

@@ -41,6 +41,9 @@ t('blocks Edit of apps/web/prisma/migrations/x/migration.sql', edit('apps/web/pr
 t('blocks Edit of .referee/scripts/hooks/guard.mjs', edit('.referee/scripts/hooks/guard.mjs') === 2);
 t('blocks Edit of nested apps/web/.env.local', edit('apps/web/.env.local') === 2);
 t('allows Edit of src/app.ts', edit('src/app.ts') === 0);
+t('blocks Edit of an Alembic migration (backend/app/alembic/versions)', edit('backend/app/alembic/versions/1a2b_add_bio.py') === 2);
+t('allows Edit of .env.example (a template, not secrets)', edit('.env.example') === 0 && edit('apps/web/.env.example') === 0);
+t('still blocks Edit of .env.local', edit('.env.local') === 2);
 
 // 2. Bash side doors
 t('blocks self-granting full send (touch)', bash('touch .referee/state/full-send') === 2);
@@ -113,9 +116,25 @@ cfg.verify = 'node -e "process.exit(1)"'; fs.writeFileSync(cfgPath, JSON.stringi
 routeP('just a question about the code');
 t('stop gate skips verify when the turn changed nothing', hook('stop', { session_id: 'r' }).status === 0);
 fs.writeFileSync(path.join(tmp, 'a.txt'), 'changed');
-const s1 = hook('stop', { session_id: 'r' }).status, s2 = hook('stop', { session_id: 'r', stop_hook_active: true }).status;
-const s3 = hook('stop', { session_id: 'r', stop_hook_active: true }).status, s4 = hook('stop', { session_id: 'r', stop_hook_active: true }).status;
-t('stop gate blocks a failing verify 3 times, then lets go', [s1, s2, s3, s4].join() === '2,2,2,0', [s1, s2, s3, s4].join());
+// Each retry changes the code (the agent is trying to fix it): blocked up to 3 times, then let go.
+const tries = [];
+for (let i = 0; i < 4; i++) { tries.push(hook('stop', { session_id: 'r', stop_hook_active: i > 0 }).status); fs.writeFileSync(path.join(tmp, 'a.txt'), `try ${i}`); }
+t('stop gate blocks a failing verify 3 times while the agent keeps changing code, then lets go', tries.join() === '2,2,2,0', tries.join());
+// Field test fix: sent back once, then nothing changed (the agent chose to explain): don't send it back again.
+routeP('another change'); fs.writeFileSync(path.join(tmp, 'a.txt'), 'explain case');
+const e1 = hook('stop', { session_id: 'r' }).status, e2 = hook('stop', { session_id: 'r', stop_hook_active: true }).status;
+t('stop gate does not re-block when the agent made no change since the last block', e1 === 2 && e2 === 0, `${e1},${e2}`);
+// Field test fix: a missing tool means the checks couldn't run; report it, don't send the agent to install things.
+cfg.verify = 'definitely-not-a-real-tool --check'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+routeP('change'); fs.writeFileSync(path.join(tmp, 'a.txt'), 'setup case');
+const sg = hook('stop', { session_id: 'r' });
+let sgMsg = ''; try { sgMsg = JSON.parse(sg.stdout.trim().split('\n').pop()).systemMessage; } catch {}
+t('missing tools: checks reported as "couldn\'t run", agent not sent back', sg.status === 0 && /couldn't run/.test(sgMsg), `${sg.status} ${sgMsg}`);
+// Field test fix: CI=1 so test runners (Jest/Vitest/CRA) don't start in watch mode and hang.
+cfg.verify = 'node -e "process.exit(process.env.CI ? 0 : 1)"'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+routeP('change'); fs.writeFileSync(path.join(tmp, 'a.txt'), 'ci case');
+t('checks run with CI=1, so test runners do not wait in watch mode', hook('stop', { session_id: 'r' }).status === 0);
+cfg.verify = 'node -e "process.exit(1)"'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
 cfg.verify = 'node -e "process.exit(0)"'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
 routeP('change it again'); fs.writeFileSync(path.join(tmp, 'a.txt'), 'changed again');
 t('stop gate passes a green verify', hook('stop', { session_id: 'r' }).status === 0);
@@ -180,6 +199,28 @@ t('log hook writes the session log', fs.existsSync(path.join(logs, 'L.jsonl')));
   t('spec: "don\'t unlock the tests" keeps the lock', edit('tests/score.test.js') === 2);
   const un = routeP('ok, unlock the tests so you can fix the typo').stdout;
   t('spec: the user saying "unlock the tests" unlocks them', edit('tests/score.test.js') === 0 && /unlocked the agreed tests/.test(un), un);
+}
+
+// 7d. Checks-command detection, from the four field-test repos
+{
+  const mk = (files) => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'referee-detect-'));
+    spawnSync('git', ['init', '-q'], { cwd: d });
+    for (const [f, c] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(d, f)), { recursive: true }); fs.writeFileSync(path.join(d, f), c); }
+    spawnSync('git', ['add', '-A'], { cwd: d });
+    const out = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/detect.mjs')], { cwd: d, encoding: 'utf8', env: { ...env, REFEREE_ROOT: d, CLAUDE_PROJECT_DIR: d } }).stdout;
+    fs.rmSync(d, { recursive: true, force: true });
+    try { return JSON.parse(out); } catch { return { verify: '', verifyFull: '', notes: [out] }; }
+  };
+  const bun = mk({ 'package.json': JSON.stringify({ scripts: { lint: 'biome check', test: 'vitest' } }), 'bun.lock': '', 'src/a.test.ts': '' });
+  t('detect: bun repo uses "bun run"', bun.verify === 'bun run lint' && /bun run test/.test(bun.verifyFull), JSON.stringify(bun));
+  const cra = mk({ 'package.json': JSON.stringify({ scripts: { test: 'react-scripts test', build: 'react-scripts build' } }), 'src/App.js': '' });
+  t('detect: a test script with no test files is left out', !/test/.test(cra.verify + cra.verifyFull) && /no test files/.test(cra.notes.join(' ')), JSON.stringify(cra));
+  const py = mk({ 'package.json': JSON.stringify({ scripts: { lint: 'bun run --filter frontend lint' } }), 'bun.lock': '', 'uv.lock': '',
+    'backend/pyproject.toml': '[dependency-groups]\ndev = [\n "pytest<10",\n "ruff<1.0.0,>=0.16.0",\n "mypy>=1",\n]\n', 'backend/tests/test_main.py': '' });
+  t('detect: Python backend gets ruff in quick checks, pytest only in the full run', /uv run --directory backend ruff check \./.test(py.verify) && /pytest/.test(py.verifyFull) && !/pytest/.test(py.verify), JSON.stringify(py));
+  const turbo = mk({ 'package.json': JSON.stringify({ scripts: {} }), 'pnpm-lock.yaml': '', 'turbo.json': JSON.stringify({ tasks: { lint: {}, typecheck: {}, build: {} } }) });
+  t('detect: Turborepo checks only affected packages', turbo.verify === 'pnpm turbo run typecheck lint --affected', JSON.stringify(turbo));
 }
 
 // 8. Visible results: a line after each message, the status line, /referee, first-run onboarding

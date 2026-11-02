@@ -5,7 +5,9 @@
 //     while it fails, up to config.stopGateMaxBlocks times per turn (default 3), then hands it to the human;
 // (3) shows the user a one-line result after each message (config.showResultsEachMessage, default on)
 //     and saves it for the status line and /referee.
-import { config, readStdin, sh, treeSnapshot, readTurn, writeTurn, writeLast, logEvent, effectiveMode } from '../lib.mjs';
+import { AGENT, config, readStdin, runVerify, treeSnapshot, readTurn, writeTurn, writeLast, logEvent, effectiveMode } from '../lib.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 import { audit } from '../audit.mjs';
 import { resultLine } from '../report.mjs';
 
@@ -33,7 +35,14 @@ if (process.env.REFEREE_HOOK === 'stop-gate' || (process.argv[1] || '').endsWith
     if (observe) process.exit(0);
     if (code === 2) { console.error(agentMessage); process.exit(2); }
     if (agentMessage) console.error(agentMessage);
-    if (cfg.showResultsEachMessage !== false) console.log(JSON.stringify({ systemMessage: resultLine(last) }));
+    // First message in the repo: show what the scan found, whatever the agent did with it.
+    let onboard = '';
+    const pend = path.join(AGENT, 'state', 'onboard-pending');
+    try { onboard = fs.readFileSync(pend, 'utf8').trim(); fs.rmSync(pend, { force: true }); } catch {}
+    const lines = [];
+    if (onboard) lines.push(`⚖ Referee scanned this repo: ${onboard} · full report: .referee/reports/scan.md`);
+    if (cfg.showResultsEachMessage !== false) lines.push(resultLine(last));
+    if (lines.length) console.log(JSON.stringify({ systemMessage: lines.join('\n') }));
     process.exit(0);
   };
 
@@ -45,13 +54,25 @@ if (process.env.REFEREE_HOOK === 'stop-gate' || (process.argv[1] || '').endsWith
   // No snapshot (route hook didn't run): fall back to verifying.
   if (turn.snap && turn.snap === now) done(turn.lastVerify || 'unchanged');
 
-  const r = sh(cfg.verify);
+  const r = runVerify(cfg.verify);
   if (r.ok) { writeTurn(sid, { snap: now, blocks: 0, lastVerify: 'pass' }); done('pass'); }
 
+  // The checks couldn't run at all (tools or dependencies missing): not the code's fault.
+  // Don't send the agent back to "fix" it (it would start installing things); tell the user instead.
+  if (r.setup) {
+    writeTurn(sid, { snap: now, blocks: 0, lastVerify: 'setup' });
+    done('setup', 0, `[Referee] "${cfg.verify}" couldn't run${r.missing.length ? ` (not found: ${r.missing.join(', ')})` : ''}: the repo's tools or dependencies aren't installed. Don't install them unless the user asked; tell the user the checks didn't run.`);
+  }
+
   const max = cfg.stopGateMaxBlocks ?? 3;
-  const blocks = (turn.blocks || 0) + 1;
-  writeTurn(sid, { snap: turn.snap, blocks, lastVerify: 'fail' });
   const tail = r.out.split('\n').slice(-30).join('\n');
+  // Sent back already and nothing changed since: the agent chose to explain rather than fix. Let it.
+  if (turn.blockedAt && turn.blockedAt === now) {
+    writeTurn(sid, { ...turn, lastVerify: 'fail' });
+    done('fail', 0, `[Referee] "${cfg.verify}" still fails and the code hasn't changed since the last try. Stopping: make sure the user knows exactly what is broken.`);
+  }
+  const blocks = (turn.blocks || 0) + 1;
+  writeTurn(sid, { snap: turn.snap, blocks, lastVerify: 'fail', blockedAt: now });
   if (blocks <= max) done('fail', 2, `[Referee] "${cfg.verify}" fails (attempt ${blocks}/${max}). Fix it before finishing, or tell the user exactly what is broken.\n` + tail);
   done('fail', 0, `[Referee] "${cfg.verify}" still fails after ${max} attempts. Stopping anyway: tell the user exactly what is broken.\n` + tail);
 }

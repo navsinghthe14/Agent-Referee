@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { AGENT, config, fullSendActive, readLast } from './lib.mjs';
 
-const VERIFY_TEXT = { pass: 'checks ✓', fail: 'checks ✗', unchanged: 'no code changed', off: 'no checks set' };
+const VERIFY_TEXT = { pass: 'checks ✓', fail: 'checks ✗', setup: "checks couldn't run (install the repo's dependencies)", unchanged: 'no code changed', off: 'no checks set' };
 
 export function fullSendLeft(cfg = config()) {
   const f = path.join(AGENT, 'state', 'full-send');

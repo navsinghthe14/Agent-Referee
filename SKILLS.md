@@ -34,10 +34,10 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
 ### referee-onboard
 - **Description:** Use the first time the referee runs in a repo, or when asked to "set up the referee" or "show what the referee will do here". Scans the codebase, then shows which skills apply and how, before any task starts.
 - **What it does:** runs a read-only scan of the repo, then shows three tables: what it found, how each skill will work here, and what will be blocked. It asks about anything unprotected, offers a baseline week to measure the "before", and explains the daily summary.
-- **How it's triggered:** automatically at the first message in a repo (`route.mjs` checks for `.referee/state/onboarded`), or by `set up the referee` / `what will the referee do here`.
+- **How it's triggered:** automatically at the first message in a repo, or by `set up the referee` / `what will the referee do here`. On that first message `route.mjs` runs the scan itself and marks onboarding done, and the stop hook shows the user a one-line summary. In a [live test](FIELD-TEST.md) the agent skipped showing the scan, so this part no longer depends on the agent.
 - **Code behind it:**
-  - `scan.mjs` reads files and git only, and saves `.referee/reports/scan.md`;
-  - `scan.mjs --done` marks onboarding finished;
+  - `scan.mjs` reads files and git only, and saves `.referee/reports/scan.md` (`--summary` prints the one-line version);
+  - the checks command comes from `detect.mjs` (bun/pnpm/yarn/npm, Turborepo, Python through uv or poetry);
   - `install.sh --baseline=N` sets the observe period, and `impact.mjs` reports the before and after.
 
 ### referee-rules
@@ -149,7 +149,7 @@ One real situation for each skill: what you say, what the agent does, and what t
 
 **referee-onboard**
 - *You say:* anything, the first time, for example "fix the login bug".
-- *The agent:* scans the repo first and shows what it found (for example "Turborepo, 2 packages, migrations in `supabase/migrations`"), how each skill will work there, and what's not protected yet. It offers a baseline week, then fixes the bug.
+- *The agent:* the referee scans the repo, and the agent shows what it found (for example "Turborepo, 2 packages, migrations in `supabase/migrations`"), how each skill will work there, and what's not protected yet. It offers a baseline week, then fixes the bug.
 - *The referee checks:* this skill loaded before the first edit of that first turn.
 
 **referee-rules**

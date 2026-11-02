@@ -2,6 +2,18 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-01 — Field test on 4 public repos, and the fixes it forced
+
+Seven live Claude Code sessions on Next.js, Turborepo, FastAPI and Create React App repos. Full report: [FIELD-TEST.md](FIELD-TEST.md).
+
+- **Onboarding is hook-driven:** the hook runs the scan on the first message and shows a one-line summary. The agent had skipped showing it.
+- **"Checks couldn't run"** (missing tools or dependencies) is reported to the user, not treated as broken code. The agent had started installing packages.
+- **No repeat send-backs:** the stop gate sends the agent back again only if it changed code since the last try.
+- **`detect.mjs`:** bun, Python (ruff/mypy/pytest through uv or poetry), and `test` scripts with no tests are left out.
+- **`CI=1`** on every check run, so Jest/Vitest/Create React App don't hang in watch mode.
+- **Protected by default:** Alembic migrations. **Editable by default:** `.env.example` and other templates. `!` exceptions in `protectedPaths`.
+- Scan detects Python frameworks. 74 self-tests.
+
 ## 2026-11-01 — Spec first: tests you agree, then locked
 
 - **`spec-first` skill:** agrees the tests with the user in plain English before coding. 0 questions for small changes, 1–3 typical, at most 5; asks for example answers, not approval.

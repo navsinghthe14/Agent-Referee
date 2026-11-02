@@ -5,7 +5,7 @@
 //   audits      how often each session check passes across recent sessions
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, AGENT, config, sh, git, fullSendActive, branchSlug } from './lib.mjs';
+import { ROOT, AGENT, config, sh, git, fullSendActive, branchSlug, runVerify } from './lib.mjs';
 import { checkLocks as spawnLocks } from './spec.mjs';
 
 const cmd = process.argv[2];
@@ -20,7 +20,7 @@ function status() {
   const dirty = git(['status', '--porcelain']);
   add('clean tree', dirty === '', dirty ? `${dirty.split('\n').length} uncommitted file(s)` : '');
   const v = cfg.verifyFull || cfg.verify;
-  if (v) { const r = sh(v); add(`verify (${v})`, r.ok, r.ok ? '' : r.out.split('\n').filter(Boolean).slice(-3).join(' | ')); }
+  if (v) { const r = runVerify(v); add(`verify (${v})`, r.ok, r.ok ? '' : r.out.split('\n').filter(Boolean).slice(-3).join(' | ')); }
   else add('verify', false, 'no verify command in .referee/config.json');
   const locks = spawnLocks();
   if (locks.length) add('agreed tests unchanged', locks.every(x => x.ok), locks.filter(x => !x.ok).map(x => `${x.file} ${x.why}`).join(', '));
