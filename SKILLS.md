@@ -1,6 +1,6 @@
 # Skills — what each one does and how the code uses it
 
-Thirteen skills in `.claude/skills/`. Eight come from the original agent-method kit, two (referee-onboard, spec-first) are new; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
+Fourteen skills in `.claude/skills/`. Eight come from the original agent-method kit, three (referee-onboard, spec-first, agent-build-review) are new; three came from Superpowers (writing-plans, verification-before-completion, receiving-code-review) and were rewritten to use this kit's paths, scripts and rules.
 
 ## How a skill gets used
 
@@ -41,7 +41,7 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
   - `install.sh --baseline=N` sets the observe period, and `impact.mjs` reports the before and after.
 
 ### referee-rules
-- **Description:** Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other eleven skills.
+- **Description:** Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other thirteen skills.
 - **What it does:** the house rules (seven judgment rules) and the map of which skill fits which situation. It also lists what the code enforces, so the agent knows it can't skip those.
 - **How it's triggered:** by its description. It isn't in `routing.json`, because it's the entry point the others hang off.
 - **Code behind it:** it describes all four hooks and `method.mjs`.
@@ -143,6 +143,13 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
   - `method.mjs audits` gives pass rates per check;
   - `eval-triggers.mjs` (add `--live` for the real CLI) tests the router.
 
+### agent-build-review
+- **Description:** Use when building, reviewing or debugging an AI agent the repo ships (its prompt, tools, memory, workflows, MCP server or evals): "review my agent", "is our agent safe". Checks it against a 15-point checklist. Not for agents working on this repo.
+- **What it does:** builds, audits or debugs a product's own AI agent (a support bot, an MCP server) against 15 checks: every instruction has a tool behind it, rules and identity live in code, memory is bounded, irreversible actions wait for the user, repeats are harmless, and evals cover the risky cases. Audits report findings by severity with file and fix.
+- **How it's built:** a short `SKILL.md` that maps each check to one of four files in `references/` (`core.md`, `actions.md`, `sharing.md`, `evals.md`). The agent reads only the file the job needs, so a simple chatbot review never loads the MCP material.
+- **Router:** `review my agent`, `is our agent safe`, `audit our support agent's tools`, `design a customer service agent`. Everyday phrases like "travel agent booking form" route nowhere, and "why did the agent…" still goes to `agent-postmortem`.
+- **Code behind it:** none of its own. Fixes it proposes land as code or evals in your product, and it hands off to `verification-before-completion` before saying an agent is fixed.
+
 ## Examples in simple English
 
 One real situation for each skill: what you say, what the agent does, and what the referee checks.
@@ -211,6 +218,11 @@ One real situation for each skill: what you say, what the agent does, and what t
 - *You say:* "Run the session audit."
 - *The agent:* shows pass rates for the last 20 sessions. For example: *"The review-before-PR check failed 4 times. Here's the latest one, and here's a fix."*
 - *The referee checks:* it runs one routine per request, so a bad run can only damage one thing.
+
+**agent-build-review**
+- *You say:* "Review my agent before we launch it."
+- *The agent:* reads the agent's definition, prompt and tools, and reports, for example: *"Critical: `lookupOrder` takes `customerId` from the model, so anyone can read anyone's order. Fix: take it from the session. Medium: the prompt asks for a replacement size, but no tool does exchanges."* It ends with the missing evals and the three fixes to do first.
+- *The referee checks:* the route sends the request here, not to `agent-postmortem`, and it can't say the agent is fixed without running its evals.
 
 ## How to write a description
 

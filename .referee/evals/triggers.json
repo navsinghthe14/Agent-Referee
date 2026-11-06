@@ -154,5 +154,33 @@
  {
   "prompt": "add a code review step to the candidate report",
   "expect": null
+ },
+ {
+  "prompt": "review my agent before we launch it",
+  "expect": "agent-build-review"
+ },
+ {
+  "prompt": "audit our support agent's tools and prompt",
+  "expect": "agent-build-review"
+ },
+ {
+  "prompt": "is our agent safe to put in front of customers?",
+  "expect": "agent-build-review"
+ },
+ {
+  "prompt": "design a customer service agent for exchanges",
+  "expect": "agent-build-review"
+ },
+ {
+  "prompt": "add an agent column to the support tickets table",
+  "expect": null
+ },
+ {
+  "prompt": "fix the travel agent booking form",
+  "expect": null
+ },
+ {
+  "prompt": "why did the agent edit the wrong file?",
+  "expect": "agent-postmortem"
  }
 ]

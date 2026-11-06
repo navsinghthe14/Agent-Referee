@@ -2,6 +2,12 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-06 — agent-build-review: check the AI agents your product ships
+
+- **New skill `agent-build-review`.** Builds, audits or debugs a product's own AI agent against 15 checks: instructions matched to tools, rules and identity in code, bounded memory, step limits, classifying with an "unclear" option, waiting for the user's yes, harmless repeats, structured output, evals, MCP, just-in-time context, code mode and skills.
+- Short `SKILL.md`; the detail sits in four `references/` files the agent reads only when needed.
+- New route in `routing.json` and 7 new routing evals (4 that must route here, 2 everyday phrases that must not, 1 that must still go to `agent-postmortem`). 46 routing evals.
+
 ## 2026-11-01 — Fixes from the first trial on a private repo
 
 - **Self-test works alongside your own hooks.** It found the referee's hooks by position, so 11 of 74 tests failed in a repo that already had a hook first. It now finds them by name.
