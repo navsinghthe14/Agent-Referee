@@ -149,6 +149,7 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
 - **How it's built:** a short `SKILL.md` that maps each check to one of four files in `references/` (`core.md`, `actions.md`, `sharing.md`, `evals.md`). The agent reads only the file the job needs, so a simple chatbot review never loads the MCP material.
 - **Router:** `review my agent`, `is our agent safe`, `audit our support agent's tools`, `design a customer service agent`. Everyday phrases like "travel agent booking form" route nowhere, and "why did the agent…" still goes to `agent-postmortem`.
 - **Code behind it:** none of its own. Fixes it proposes land as code or evals in your product, and it hands off to `verification-before-completion` before saying an agent is fixed.
+- **How it's tested:** `.referee/evals/agent-build-review/` holds a sample agent with 13 planted problems and a hidden answer key. A fresh agent audits it using only the skill. First run: 13/13 found, no wrong findings.
 
 ## Examples in simple English
 

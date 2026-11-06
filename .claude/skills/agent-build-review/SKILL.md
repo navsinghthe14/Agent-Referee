@@ -46,12 +46,15 @@ Areas 1–5 and 10 apply to every agent. Read `actions.md` if the agent changes 
 - **Critical:** another user's data can leak; an irreversible action can run without the user's yes; a policy can be talked around because it lives only in the prompt.
 - **High:** identity or prices come from the model; no step limit; a mutating call can run twice.
 - **Medium:** an instruction with no tool behind it; missing "unclear" option; unbounded memory; duplicated policy text.
-- **Low:** vague tool descriptions; model bigger than evals justify.
+- **Low:** vague tool descriptions; model bigger than evals justify; no output schema when you can't tell if a UI uses it.
+
+When two levels fit, take the higher one. An irreversible action guarded only by a prompt line is Critical, not "an instruction with no tool". Memory that piles up personal data, or free-form keys in a save tool, is Medium.
 
 ## Report
 
 1. One plain-English paragraph: what the agent does and the biggest risk.
 2. Findings table: severity, issue, file:line, why it matters, fix.
+   Something you looked for and didn't find (evals, workflows) is a finding. Something you weren't given access to goes under "Not checked", not in the table.
 3. Missing evals, written as cases (`references/evals.md` has the minimum set).
 4. The three fixes to do first.
 
