@@ -2,6 +2,13 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-06 — agent-build-review: check the AI agents your product ships
+
+- **New skill `agent-build-review`.** Builds, audits or debugs a product's own AI agent against 15 checks: instructions matched to tools, rules and identity in code, bounded memory, step limits, classifying with an "unclear" option, waiting for the user's yes, harmless repeats, structured output, evals, MCP, just-in-time context, code mode and skills.
+- Short `SKILL.md`; the detail sits in four `references/` files the agent reads only when needed.
+- **Tested blind:** a sample agent with 13 planted problems in `.referee/evals/agent-build-review/`. A fresh agent using only the skill found 13/13. Its feedback made two rules clearer: which severity wins when two fit, and how to report things it wasn't given access to.
+- New route in `routing.json` and 7 new routing evals (4 that must route here, 2 everyday phrases that must not, 1 that must still go to `agent-postmortem`). 46 routing evals.
+
 ## 2026-11-06 — Fixes from installing it on Evalor
 
 Eight problems found installing the kit next to an existing setup with many worktrees.

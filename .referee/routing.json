@@ -22,6 +22,10 @@
       "pattern": "\\b((address|respond to|handle|fix|resolve|work through) (the |these |those |my |all )?(review|pr|reviewer'?s?) (comments|feedback|findings|notes)|reviewer (said|says|wants|asked|flagged))\\b"
     },
     {
+      "skill": "agent-build-review",
+      "pattern": "\\b((review|audit|check) (my|our|this|the) (ai |llm |support |chat ?bot |customer service )?agent('s)? (design|build|setup|config|definition|tools|prompt|instructions|workflow)|(review|audit) (my|our) (ai |llm |support |customer service )?agent|is (my|our) (ai |support )?agent (safe|production[- ]ready|ready to ship)|agent (design|build) review|mcp server (design|review)|(build|design) (an?|my|our) (ai|llm|tool-using|customer service|support) agent)\\b"
+    },
+    {
       "skill": "writing-plans",
       "pattern": "\\b((write|make|draft|create) (an? |the )?(implementation |build |execution )?plan|plan (this|it) out|implementation plan|break (this|it) (down )?into tasks)\\b"
     },

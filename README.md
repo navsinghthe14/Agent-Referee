@@ -28,11 +28,11 @@ Not with more prompts. With code it can't talk its way past.
 | **5 of 7** | live Claude Code sessions on [4 public repos](FIELD-TEST.md) (Next.js, Turborepo, FastAPI, React) went the way they should. The other 2 exposed real bugs, which we fixed; both passed when re-run |
 | **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
-<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (127 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
+<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (127 checks) and <code>eval-triggers.mjs</code> (46 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
 
 <div align="center">
 
-[Quick start](#-quick-start-60-seconds) · [What you'll see](#-what-youll-see) · [The 13 skills](#-the-12-skills) · [Why it's different](#-why-its-different) · [FAQ](#-faq)
+[Quick start](#-quick-start-60-seconds) · [What you'll see](#-what-youll-see) · [The 14 skills](#-the-14-skills) · [Why it's different](#-why-its-different) · [FAQ](#-faq)
 
 </div>
 
@@ -80,7 +80,7 @@ The installer checks itself before you open Claude Code:
   ✓ Node 22
   ✓ Hooks registered in .claude/settings.json — 4 of 4
   ✓ Status line — shows "⚖ Referee on" at the bottom of Claude Code
-  ✓ Skills — 13 found
+  ✓ Skills — 14 found
   ✓ Checks command (verify) — pnpm turbo run typecheck lint --affected
   ✓ Live test: guard blocks a push to main — blocked as expected
 
@@ -237,7 +237,7 @@ The agent **can't switch "full send" on by itself.** If it tries `touch .referee
 
 ---
 
-## 🧠 The 13 skills
+## 🧠 The 14 skills
 
 | Skill | What it does | Say |
 | --- | --- | --- |
@@ -254,6 +254,7 @@ The agent **can't switch "full send" on by itself.** If it tries `touch .referee
 | **repo-audit** | Finds what confuses agents in your repo and how to fix it | "Audit the repo." |
 | **agent-postmortem** | "Why does it keep doing that?" Finds the cause and adds a rule so it can't happen again | "Why did it use the wrong tool?" |
 | **method-upkeep** | Scores across sessions, unused skills, stale notes | "Run the session audit." |
+| **agent-build-review** | Checks an AI agent your product ships: prompt vs tools, rules in code, memory, confirmations, MCP, evals | "Review my agent." |
 
 Examples for every skill, in plain English: **[SKILLS.md](SKILLS.md)**
 
@@ -265,11 +266,11 @@ Most skill packs are **prompts that hope the model complies.** Agent Referee is 
 
 | | Prompt-only skill packs | Agent Referee |
 | --- | --- | --- |
-| Knows the rules | ✓ | ✓ 13 skills |
+| Knows the rules | ✓ | ✓ 14 skills |
 | **Blows the whistle** (blocks bad moves) | ✗ | ✓ 4 hooks, in plain Node |
 | **Keeps score** (grades the session) | ✗ | ✓ every message |
 | Learns from mistakes | Write more prompt | Each mistake becomes a graded rule |
-| Tested | Rarely | **127 self-tests + 39 routing evals, run in CI** |
+| Tested | Rarely | **127 self-tests + 46 routing evals, run in CI** |
 
 **The philosophy:** if code can check it, code checks it. Only judgment calls are left to the agent.
 
@@ -391,7 +392,7 @@ Yes. The installer only replaces the referee's own hooks (those under `.referee/
 Into git's shared folder (`.git/referee/`), which every worktree uses and which survives a worktree being removed. Onboarding runs once per repository, not once per folder. `install.sh --upgrade` moves old logs from `.referee/logs/` there.
 
 **Can I remove it?**
-Delete `.referee/`, `.git/referee/`, the 13 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
+Delete `.referee/`, `.git/referee/`, the 14 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
 
 ---
 

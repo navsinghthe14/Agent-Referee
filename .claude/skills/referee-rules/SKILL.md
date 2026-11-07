@@ -1,6 +1,6 @@
 ---
 name: referee-rules
-description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other twelve skills.
+description: Load first when starting any task in this repo, onboarding to it, or when an agent misbehaved. Holds the working rules and routes to the other thirteen skills.
 ---
 
 # How agents work in this repo
@@ -50,3 +50,4 @@ If a hook blocks you, fix the cause. Never work around a hook or edit `.referee/
 | Record a decision, plan or lesson; something in `kb/inbox/` | `repo-knowledge` |
 | An agent used the wrong skill, tool or file | `agent-postmortem` |
 | Audit skills, triggers, CLAUDE.md, past sessions, stale knowledge | `method-upkeep` |
+| Build, review or debug an AI agent the product ships (its prompt, tools, memory, MCP, evals) | `agent-build-review` |
