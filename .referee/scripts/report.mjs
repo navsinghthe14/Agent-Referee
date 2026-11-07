@@ -4,7 +4,7 @@
 //   resultLine(last)                            the one line shown after each message
 import fs from 'node:fs';
 import path from 'node:path';
-import { AGENT, config, fullSendActive, readLast } from './lib.mjs';
+import { AGENT, config, fullSendActive, readLast, auditsDir } from './lib.mjs';
 
 const VERIFY_TEXT = { pass: 'checks ✓', fail: 'checks ✗', setup: "checks couldn't run (install the repo's dependencies)", unchanged: 'no code changed', off: 'no checks set' };
 
@@ -50,7 +50,7 @@ export function report(sessionId) {
   }
   out.push(`Last run: ${VERIFY_TEXT[last.verify] || last.verify} (${last.at.replace('T', ' ').slice(0, 16)} UTC)`);
   out.push('');
-  const auditFile = path.join(AGENT, 'audits', `${last.sid}.md`);
+  const auditFile = path.join(auditsDir(), `${last.sid}.md`);
   if (fs.existsSync(auditFile)) {
     const md = fs.readFileSync(auditFile, 'utf8');
     const checks = md.split('## Checks')[1];
@@ -59,9 +59,9 @@ export function report(sessionId) {
     out.push('');
     if (checks) out.push(checks.trim());
     out.push('');
-    out.push(`Full session report: .referee/audits/${last.sid}.md`);
+    out.push(`Full session report: ${auditFile}`);
   }
-  const sb = path.join(AGENT, 'audits', 'scoreboard.json');
+  const sb = path.join(auditsDir(), 'scoreboard.json');
   if (fs.existsSync(sb)) {
     const all = Object.values(JSON.parse(fs.readFileSync(sb, 'utf8')));
     const fails = {};

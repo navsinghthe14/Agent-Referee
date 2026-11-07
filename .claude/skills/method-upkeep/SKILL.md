@@ -10,7 +10,7 @@ Run one routine per invocation; its name comes from the request or the schedule.
 ## session-audit
 Every agent turn is already graded by the Stop hook from the harness's own log (not from what the agent claims). This routine reads the results across sessions.
 1. `node .referee/scripts/method.mjs audits --last=20` — pass rate per check, skills loaded, latest failing session.
-2. Open the failing session's `.referee/audits/<id>.md`. Example: `routed-skill-loaded ✗ — router named ship; not loaded before first edit`.
+2. Open the failing session's `.git/referee/audits/<id>.md`. Example: `routed-skill-loaded ✗ — router named ship; not loaded before first edit`.
 3. A check that failed twice or more is a pattern: run `agent-postmortem` on it. Its fix must add a rule to `.referee/session-rules.json`, a case to `.referee/evals/triggers.json`, or a guard, so the next audit catches it.
 4. A check that has been `n/a` for 20 sessions tests nothing: propose deleting it.
 

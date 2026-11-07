@@ -6,8 +6,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # turbo --affected needs the base branch history
+      # The repo's own Node version if it pins one (.nvmrc or .node-version), else Node 22.
+      # Node 20 broke CI in at least one repo using the kit.
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        if: hashFiles('.nvmrc') != ''
+        with: { node-version-file: .nvmrc }
+      - uses: actions/setup-node@v4
+        if: hashFiles('.nvmrc') == '' && hashFiles('.node-version') != ''
+        with: { node-version-file: .node-version }
+      - uses: actions/setup-node@v4
+        if: hashFiles('.nvmrc') == '' && hashFiles('.node-version') == ''
+        with: { node-version: 22 }
       - name: Kit self-test (guard, router, audit)
         run: node .referee/scripts/selftest.mjs
       - name: Router picks the right skill

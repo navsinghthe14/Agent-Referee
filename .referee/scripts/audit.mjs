@@ -2,10 +2,10 @@
 // audit.mjs — grade one session against .referee/session-rules.json.
 //   node .referee/scripts/audit.mjs <session-id>   (or "latest")
 // Called by the Stop hook at the end of every turn; safe to run by hand.
-// Writes .referee/audits/<session>.md and updates .referee/audits/scoreboard.json.
+// Writes audits/<session>.md and audits/scoreboard.json in the shared data folder (.git/referee/ by default).
 import fs from 'node:fs';
 import path from 'node:path';
-import { AGENT, config, readLog, globToRegex } from './lib.mjs';
+import { AGENT, config, readLog, globToRegex, runsCommand, mentionsCommand, logsDir, auditsDir } from './lib.mjs';
 
 export function audit(sessionId) {
   const cfg = config();
@@ -15,11 +15,13 @@ export function audit(sessionId) {
   if (!ev.length) return null;
 
   const calls = ev.filter(e => e.type === 'tool');
+  // Blocked attempts are matched with the guard's wider check, so a wrapped attempt the guard caught counts.
+  const attempts = ev.filter(e => (e.type === 'blocked' || e.type === 'would_block') && e.cmd).map(e => ({ ...e, tool: 'Bash', wide: true }));
   const matches = (e, w) =>
     (!w.tool || e.tool === w.tool || (w.tool === 'Agent' && e.tool === 'Task')) &&
     (!w.skill || e.skill === w.skill) &&
     (!w.subagent || e.subagent === w.subagent) &&
-    (!w.match || (e.cmd || '').includes(w.match)) &&
+    (!w.match || (e.wide ? mentionsCommand : runsCommand)(e.cmd || '', w.match)) &&
     (!w.file || globToRegex(w.file).test(e.file || ''));
   const reviewerMatch = (e) => {
     const r = cfg.reviewer || {};
@@ -67,15 +69,23 @@ export function audit(sessionId) {
         evidence = missing.size ? `missing ${[...missing].join(', ')} ${rule.after ? 'after' : 'before'} "${rule.when.match || rule.when.skill}" (${idxs.length} occurrence(s))` : 'all required steps found';
       }
     } else if (rule.type === 'forbid') {
+      // "Never" rules count attempts too. The guard blocks these commands, so they never run; if only
+      // commands that ran were checked, the rule could never fail. Never attempted = n/a, not a free pass.
       const hit = calls.find(e => matches(e, rule.when));
-      if (hit) { status = 'fail'; evidence = hit.cmd || hit.tool; } else status = 'pass';
+      const tried = attempts.find(e => matches(e, rule.when));
+      if (hit) { status = 'fail'; evidence = hit.cmd || hit.tool; }
+      else if (tried) { status = 'fail'; evidence = `tried, blocked by the guard: ${tried.cmd}`; }
     } else if (rule.type === 'forbid_unless_full_send') {
       const hit = calls.find(e => matches(e, rule.when) && !e.fullSend);
+      const tried = attempts.find(e => matches(e, rule.when));
       const any = calls.find(e => matches(e, rule.when));
-      if (any) { status = hit ? 'fail' : 'pass'; evidence = hit ? `ran without full send: ${hit.cmd}` : 'user said full send'; }
+      if (hit) { status = 'fail'; evidence = `ran without full send: ${hit.cmd}`; }
+      else if (tried) { status = 'fail'; evidence = `tried, blocked by the guard: ${tried.cmd}`; }
+      else if (any) { status = 'pass'; evidence = 'user said full send'; }
     } else if (rule.type === 'max_blocked') {
+      // Only scored once the guard has blocked something; zero blocks says nothing about behaviour.
       const n = ev.filter(e => e.type === 'blocked').length;
-      status = n > rule.max ? 'fail' : 'pass'; evidence = `${n} blocked action(s)`;
+      if (n) { status = n > rule.max ? 'fail' : 'pass'; evidence = `${n} blocked action(s)`; }
     }
     results.push({ id: rule.id, status, evidence, why: rule.why, plain: rule.plain });
   }
@@ -103,7 +113,7 @@ export function audit(sessionId) {
     ...results.map(r => `| ${r.id} | ${r.status === 'pass' ? '✓ pass' : r.status === 'fail' ? '✗ fail' : 'n/a'} | ${(r.evidence || r.why).replace(/\|/g, '\\|')} |`), ''
   ].join('\n');
 
-  const dir = path.join(AGENT, 'audits');
+  const dir = auditsDir();
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${sessionId}.md`), md);
 
@@ -118,7 +128,7 @@ export function audit(sessionId) {
 if ((process.argv[1] || '').endsWith('audit.mjs')) {
   let id = process.argv[2];
   if (!id || id === 'latest') {
-    const dir = path.join(AGENT, 'logs');
+    const dir = logsDir();
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).map(f => ({ f, m: fs.statSync(path.join(dir, f)).mtimeMs })).sort((a, b) => b.m - a.m) : [];
     id = files[0]?.f.replace(/\.jsonl$/, '');
   }

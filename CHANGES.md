@@ -2,6 +2,20 @@
 
 Newest first. Every change updates README.md and SKILLS.md in the same commit.
 
+## 2026-11-06 — Fixes from installing it on Evalor
+
+Eight problems found installing the kit next to an existing setup with many worktrees.
+
+- **Observe mode is fully silent.** The first message in a folder no longer tells the agent to onboard, which spoiled the "before" measurement. Onboarding waits until enforcement starts.
+- **Logs live in one shared place.** Logs, audits, the scoreboard and "onboarded" moved from `.referee/` (one copy per folder) to git's shared folder, `.git/referee/`, which every worktree uses and which survives a worktree being removed. `dataDir` overrides it. `--upgrade` moves old logs.
+- **Works beside other setups.** The installer only replaces hooks under `.referee/scripts/hooks`; it had replaced Evalor's own `guard.mjs`. `.claude/settings.json` is no longer locked: an edit is blocked only if it would remove the referee's hooks. The doctor tests the referee's guard, not the first `guard.mjs` it finds.
+- **"Never" rules can fail.** They only saw commands that ran, and the guard blocks those commands, so they always passed. Blocked attempts now count as a fail, and a rule whose situation never came up is n/a instead of a free pass (also `max_blocked`).
+- **End-of-turn check has a time limit.** `stopGateTimeoutSec` (default 120); past it the check is skipped for that turn and the user is told. The Stop hook has a 180s timeout in settings. A turn sent back by another Stop hook is counted once.
+- **Commands are matched as commands.** A small shell parser reads what actually runs: `gh pr merge` in a commit message, an `echo` or a heredoc written to a file is no longer blocked or scored, while a merge wrapped in `bash -c`, `eval`, a subshell, `xargs`, `sudo`, a pipe into a shell or odd quoting still is. The guard runs two checks (the parser, and the old plain-text match with only clear data removed) and blocks if either fires, so it errs towards blocking. Two rounds of independent review found the bypasses in earlier drafts. `git commit -n`, shortened `--no-v` and `core.hooksPath` now count as skipping checks. Routing ignores pasted code blocks, quoted lines and long quotes.
+- **"Full send" no longer lets the agent merge by default.** It now means "go all the way to a green PR without pausing". Merging and pushing to main by the agent need `"fullSendMerges": true` as well.
+- **CI uses the repo's Node version** (`.nvmrc` or `.node-version`), else Node 22. Node 20 had broken CI.
+- 127 self-tests (42 new).
+
 ## 2026-11-01 — Fixes from the first trial on a private repo
 
 - **Self-test works alongside your own hooks.** It found the referee's hooks by position, so 11 of 74 tests failed in a repo that already had a hook first. It now finds them by name.
