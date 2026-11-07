@@ -10,7 +10,7 @@
       { "matcher": "*", "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='log';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','log.mjs')))\"" }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='stop-gate';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','stop-gate.mjs')))\"" }] }
+      { "hooks": [{ "type": "command", "command": "node -e \"process.env.REFEREE_HOOK='stop-gate';import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','hooks','stop-gate.mjs')))\"", "timeout": 180 }] }
     ]
   },
   "statusLine": { "type": "command", "command": "node -e \"import(require('url').pathToFileURL(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'.referee','scripts','statusline.mjs')))\"" }

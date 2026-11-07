@@ -29,12 +29,15 @@ const fs=require("fs"),p=process.env.DEST+"/.claude/settings.json";
 const add=JSON.parse(fs.readFileSync(process.env.SRC+"/.claude/settings.json","utf8")).hooks;
 const cur=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{};
 cur.hooks??={};
-const hookFile=c=>(c.match(/hooks.{1,6}(route|guard|log|stop-gate)\.mjs/)||[])[1];
+// Only hooks under .referee/scripts/hooks are ever replaced. A hook from another tool with the
+// same file name (Evalor has its own guard.mjs) is left exactly where it is.
+const hookFile=c=>(c.match(/\.referee\W+scripts\W+hooks\W+(route|guard|log|stop-gate)\.mjs/)||[])[1];
 for(const [ev,groups] of Object.entries(add)){cur.hooks[ev]??=[];
   for(const g of groups){const c=g.hooks[0].command,h=hookFile(c);
     cur.hooks[ev]=cur.hooks[ev].filter(x=>!(x.hooks||[]).some(k=>k.command!==c&&hookFile(k.command||"")===h));
     const same=cur.hooks[ev].find(x=>(x.hooks||[]).some(k=>k.command===c));
-    if(!same)cur.hooks[ev].push(g); else if(g.matcher)same.matcher=g.matcher;}}
+    if(!same)cur.hooks[ev].push(g); else {if(g.matcher)same.matcher=g.matcher;
+      const k=same.hooks.find(k=>k.command===c);if(g.hooks[0].timeout&&k&&!k.timeout)k.timeout=g.hooks[0].timeout;}}}
 // Status line: add ours only if the repo has none. Never replace someone else'"'"'s.
 const sl=JSON.parse(fs.readFileSync(process.env.SRC+"/.claude/settings.json","utf8")).statusLine;
 if(sl&&!cur.statusLine)cur.statusLine=sl;
@@ -52,8 +55,22 @@ for(const [k,v] of Object.entries(kit)) if(!(k in cur)){cur[k]=v;added.push(k);}
 if(added.includes("appendOnlyPaths")){const mig=["**/migrations/**","**/alembic/versions/**"];
   const before=cur.protectedPaths.length;cur.protectedPaths=cur.protectedPaths.filter(x=>!mig.includes(x));
   if(cur.protectedPaths.length<before)console.log("Migrations are now add-only: new migration files are allowed, existing ones stay locked.");}
+// .claude/settings.json is no longer locked: other tools keep hooks there. The guard now only blocks edits
+// that would remove the referee hooks.
+const sj=cur.protectedPaths.indexOf(".claude/settings.json");
+if(sj>=0){cur.protectedPaths.splice(sj,1);console.log(".claude/settings.json is no longer locked; edits that remove the referee hooks are still blocked.");}
 fs.writeFileSync(p,JSON.stringify(cur,null,2)+"\n");
-if(added.length)console.log("Added new settings to .referee/config.json: "+added.join(", "));'; fi
+if(added.length)console.log("Added new settings to .referee/config.json: "+added.join(", "));'
+# Logs and audits moved from .referee/ (one per folder) to the shared git folder, so worktrees share them.
+(cd "$DEST" && REFEREE_ROOT="$DEST" node -e '
+const fs=require("fs"),path=require("path");
+import(require("url").pathToFileURL(process.env.REFEREE_ROOT+"/.referee/scripts/lib.mjs")).then(({AGENT,dataDir})=>{
+  let n=0;for(const d of ["logs","audits"]){const from=path.join(AGENT,d),to=path.join(dataDir(),d);
+    if(from===to||!fs.existsSync(from))continue;fs.mkdirSync(to,{recursive:true});
+    for(const f of fs.readdirSync(from)){const t=path.join(to,f);
+      if(!fs.existsSync(t)){fs.renameSync(path.join(from,f),t);n++;}
+      else if(d==="logs"){fs.appendFileSync(t,fs.readFileSync(path.join(from,f)));fs.rmSync(path.join(from,f));n++;}}}
+  if(n)console.log("Moved "+n+" log/audit file(s) to "+dataDir()+" (shared by all worktrees).");});'); fi
 
 # Detect the checks command if config has none (rules in .referee/scripts/detect.mjs).
 (cd "$DEST" && REFEREE_ROOT="$DEST" node -e '

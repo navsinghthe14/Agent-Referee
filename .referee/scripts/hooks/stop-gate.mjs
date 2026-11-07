@@ -29,7 +29,12 @@ if (process.env.REFEREE_HOOK === 'stop-gate' || (process.argv[1] || '').endsWith
     const last = { sid, at: new Date().toISOString(), score, verify, verifyCmd: cfg.verify || '', mode: observe ? 'observe' : 'enforce' };
     try { writeLast(last); } catch {}
     // One event per finished turn, for impact.mjs: did the agent end this turn with failing checks?
-    if (code !== 2 || observe) try { logEvent(sid, { type: 'turn_end', verify, mode: last.mode }); } catch {}
+    // Another Stop hook can send the agent back, so this hook may run several times for one turn:
+    // count the turn once (route.mjs resets the flag on each new prompt).
+    if (code !== 2 || observe) try {
+      const tState = readTurn(sid) || {};
+      if (!tState.ended) { logEvent(sid, { type: 'turn_end', verify, mode: last.mode }); writeTurn(sid, { ...tState, ended: true }); }
+    } catch {}
     else try { logEvent(sid, { type: 'stop_blocked', verify }); } catch {}
     // Observe mode never blocks and stays silent: we're measuring the agent's normal behaviour.
     if (observe) process.exit(0);
@@ -54,7 +59,14 @@ if (process.env.REFEREE_HOOK === 'stop-gate' || (process.argv[1] || '').endsWith
   // No snapshot (route hook didn't run): fall back to verifying.
   if (turn.snap && turn.snap === now) done(turn.lastVerify || 'unchanged');
 
-  const r = runVerify(cfg.verify);
+  // Time limit: a slow checks command (minutes on a big monorepo) would hold every turn. Past the limit the
+  // gate gives up for this turn and tells the user, rather than blocking or hanging.
+  const limit = (cfg.stopGateTimeoutSec ?? 120) * 1000;
+  const r = runVerify(cfg.verify, { timeout: limit });
+  if (r.timedOut) {
+    writeTurn(sid, { ...turn, lastVerify: 'timeout' });
+    done('timeout', 0, `[Referee] "${cfg.verify}" took longer than ${limit / 1000}s, so the end-of-turn check was skipped. Tell the user; a faster "verify" (with the full run in "verifyFull" for CI) fixes this.`);
+  }
   if (r.ok) { writeTurn(sid, { snap: now, blocks: 0, lastVerify: 'pass' }); done('pass'); }
 
   // The checks couldn't run at all (tools or dependencies missing): not the code's fault.

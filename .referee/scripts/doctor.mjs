@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, AGENT, config, git, sh, fullSendActive, effectiveMode } from './lib.mjs';
+import { ROOT, AGENT, config, git, sh, fullSendActive, effectiveMode, logsDir } from './lib.mjs';
 
 const rows = [];
 const add = (ok, name, note = '', warn = false) => rows.push({ ok, name, note, warn });
@@ -24,7 +24,7 @@ add(inGit, 'Git repository', inGit ? (git(['rev-parse', '--abbrev-ref', 'HEAD'])
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude', 'settings.json'), 'utf8')); } catch {}
 const hooks = settings.hooks || {};
-const has = (ev, file) => (hooks[ev] || []).some(g => (g.hooks || []).some(h => (h.command || '').includes(file)));
+const has = (ev, file) => (hooks[ev] || []).some(g => (g.hooks || []).some(h => /\.referee\W+scripts\W+hooks\W/.test(h.command || '') && (h.command || '').includes(file)));
 const want = [['UserPromptSubmit', 'route.mjs', 'picks the skill'], ['PreToolUse', 'guard.mjs', 'blocks risky moves'], ['PostToolUse', 'log.mjs', 'records actions'], ['Stop', 'stop-gate.mjs', 'scores and checks']];
 const missing = want.filter(([ev, f]) => !has(ev, f));
 add(!missing.length, 'Hooks registered in .claude/settings.json', missing.length ? `missing: ${missing.map(m => m[1]).join(', ')}. Re-run install.sh` : '4 of 4');
@@ -56,7 +56,9 @@ const gh = sh('gh --version').ok;
 add(gh, 'GitHub CLI (gh)', gh ? '' : 'optional; needed for PRs and "method.mjs status"', !gh);
 
 // Live guard test: feed the guard a push to main, exactly as Claude Code would.
-const hookCmd = (hooks.PreToolUse || []).flatMap(g => g.hooks || []).find(h => (h.command || '').includes('guard.mjs'))?.command;
+// The referee's own guard: a repo can have its own guard.mjs too (Evalor does), so match the .referee path.
+const ours = (c = '') => /\.referee\W+scripts\W+hooks\W/.test(c);
+const hookCmd = (hooks.PreToolUse || []).flatMap(g => g.hooks || []).find(h => ours(h.command) && (h.command || '').includes('guard.mjs'))?.command;
 if (hookCmd) {
   const r = spawnSync(hookCmd, {
     cwd: ROOT, shell: true, encoding: 'utf8', timeout: 15000,
@@ -66,13 +68,13 @@ if (hookCmd) {
   const fullSendOn = fullSendActive(cfg);
   const observing = effectiveMode(cfg) === 'observe';
   let recorded = false;
-  try { recorded = /would_block/.test(fs.readFileSync(path.join(AGENT, 'logs', 'doctor.jsonl'), 'utf8')); } catch {}
+  try { recorded = /would_block/.test(fs.readFileSync(path.join(logsDir(), 'doctor.jsonl'), 'utf8')); } catch {}
   const ok = observing ? r.status === 0 && recorded : r.status === 2 || (r.status === 0 && fullSendOn);
   add(ok, observing ? 'Live test: guard records a push to main (observe mode)' : 'Live test: guard blocks a push to main',
     ok ? (observing ? `recorded, not blocked: observing${cfg.baselineUntil ? ` until ${cfg.baselineUntil.slice(0, 10)}` : ''}` : r.status === 2 ? 'blocked as expected' : 'allowed: full send is on right now')
        : `unexpected exit ${r.status}: ${(r.stderr || '').trim().slice(0, 120)}`);
   // Don't let the doctor's test count against a real session score.
-  try { fs.rmSync(path.join(AGENT, 'logs', 'doctor.jsonl'), { force: true }); } catch {}
+  try { fs.rmSync(path.join(logsDir(), 'doctor.jsonl'), { force: true }); } catch {}
 } else add(false, 'Live test: guard blocks a push to main', 'guard hook not registered');
 
 // Print

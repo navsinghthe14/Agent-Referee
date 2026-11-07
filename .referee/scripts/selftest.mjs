@@ -100,13 +100,18 @@ t('negated "full send" does not enable merging', bash('gh pr merge 1') === 2);
 routeP('what does "full send" mean?');
 t('quoted "full send" does not enable merging', bash('gh pr merge 1') === 2);
 routeP('fix the header, full send');
-t('"full send" in a prompt enables merging', bash('gh pr merge 1') === 0);
+t('"full send" alone does not let the agent merge (fullSendMerges is off by default)', bash('gh pr merge 1') === 2 && bash('git push origin main') === 2);
+cfg.fullSendMerges = true; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+t('"full send" enables merging when the repo opts in (fullSendMerges)', bash('gh pr merge 1') === 0);
 t('force push to main still blocked in full send', bash('git push -f origin main') === 2);
 routeP('ok, full stop');
 t('"full stop" turns merging back off', bash('gh pr merge 1') === 2);
+delete cfg.fullSendMerges; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
 
 // 5. Audit: routed skill checked per turn; every PR checked
-const logs = path.join(tmp, '.referee', 'logs'); fs.mkdirSync(logs, { recursive: true });
+// Logs live in git's common directory, shared by every worktree (not per folder).
+const shared = path.join(tmp, '.git', 'referee');
+const logs = path.join(shared, 'logs'); fs.mkdirSync(logs, { recursive: true });
 const writeLog = (id, rows) => fs.writeFileSync(path.join(logs, `${id}.jsonl`), rows.map(r => JSON.stringify({ t: '1', ...r })).join('\n') + '\n');
 writeLog('s1', [
   { type: 'prompt', text: 'rename var', routed: null }, { type: 'tool', tool: 'Edit', file: 'a.ts' },
@@ -194,7 +199,8 @@ t('log hook writes the session log', fs.existsSync(path.join(logs, 'L.jsonl')));
   t('impact report compares before (observe) with after (enforce)', /Before \(observe\)/.test(imp) && /In one line:/.test(imp) && /pushes to main \| 1 \| 1/.test(imp), imp);
   const dly = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/daily.mjs'), day], { cwd: tmp, encoding: 'utf8', env }).stdout;
   t('daily summary counts blocks and catches', /stopped \*\*\d+ risky moves?\*\*/.test(dly) && /sent the agent back \*\*1 time\*\*/.test(dly), dly);
-  fs.writeFileSync(path.join(tmp, '.referee', 'state', 'last-day'), '2000-01-01');
+  fs.mkdirSync(path.join(shared, 'state'), { recursive: true });
+  fs.writeFileSync(path.join(shared, 'state', 'last-day'), '2000-01-01');
   writeLog('old', [{ t: '2000-01-01T10:00:00Z', type: 'prompt', text: 'x' }]);
   t('first message of a new day shows yesterday\'s summary', /yesterday's referee summary/.test(routeP('hello').stdout));
   cfg.baselineUntil = new Date(Date.now() + 864e5).toISOString(); fs.writeFileSync(cfgPath, JSON.stringify(cfg));
@@ -261,13 +267,85 @@ t('/referee report shows the mode and checks', /Mode:/.test(rep) && /Checks:/.te
 cfg.showResultsEachMessage = false; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
 t('result line can be switched off', !/systemMessage/.test(hook('stop', { session_id: 'r' }).stdout));
 const onboardFlag = path.join(tmp, '.referee', 'state', 'onboarded');
-fs.rmSync(onboardFlag, { force: true });
+fs.rmSync(onboardFlag, { force: true }); fs.rmSync(path.join(shared, 'state', 'onboarded'), { force: true });
 t('first message in a repo starts onboarding', /referee-onboard/.test(routeP('fix the header, full stop').stdout));
 const scan = spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/scan.mjs')], { cwd: tmp, encoding: 'utf8', env }).stdout;
 t('scan shows what it found and how each skill will work', /## What I found/.test(scan) && /## How the referee will work here/.test(scan) && /\*\*ship\*\*/.test(scan));
 spawnSync(process.execPath, [path.join(tmp, '.referee/scripts/scan.mjs'), '--done'], { cwd: tmp, encoding: 'utf8', env });
 const after = routeP('fix the header, full stop').stdout;
 t('after onboarding, messages route to the task skill', /`ship`/.test(after) && !/referee-onboard/.test(after), after);
+
+// 9. Field fixes (2026-11-06): observe is silent, shared logs, other tools' setup, honest scores, time limits, parsing
+{
+  const shared2 = path.join(tmp, '.git', 'referee', 'state', 'onboarded');
+  fs.rmSync(shared2, { force: true }); fs.rmSync(path.join(tmp, '.referee', 'state', 'onboarded'), { force: true });
+  cfg.mode = 'observe'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  t('observe: first message in a folder says nothing, not even onboarding', routeP('fix the header').stdout.trim() === '' && !fs.existsSync(shared2));
+  cfg.mode = 'enforce'; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  routeP('fix the header');
+  t('onboarding is recorded once per repository (git common dir), not per folder', fs.existsSync(shared2));
+  // A worktree shares the same logs and onboarding.
+  const wt = path.join(tmp, '..', path.basename(tmp) + '-wt');
+  run('git', ['worktree', 'add', '-q', '-b', 'wt-branch', wt]);
+  fs.cpSync(path.join(tmp, '.referee'), path.join(wt, '.referee'), { recursive: true, filter: s => !/[\\/](state|logs|audits)([\\/]|$)/.test(s) });
+  fs.mkdirSync(path.join(wt, '.claude'), { recursive: true }); fs.copyFileSync(path.join(tmp, '.claude', 'settings.json'), path.join(wt, '.claude', 'settings.json'));
+  const wenv = { ...env, CLAUDE_PROJECT_DIR: wt, REFEREE_ROOT: wt };
+  const wr = spawnSync(launcher.route, { cwd: wt, shell: true, encoding: 'utf8', input: JSON.stringify({ session_id: 'wt1', prompt: 'fix the header' }), env: wenv }).stdout;
+  t('a new worktree does not onboard again', !/referee-onboard/.test(wr), wr);
+  t('a worktree writes to the shared log, so removing it loses nothing', fs.existsSync(path.join(logs, 'wt1.jsonl')));
+  run('git', ['worktree', 'remove', '--force', wt]);
+  t('the log survives the worktree being removed', fs.existsSync(path.join(logs, 'wt1.jsonl')));
+
+  // .claude/settings.json is shared with other tools: editable, but the referee's hooks must stay.
+  const sp = path.join(tmp, '.claude', 'settings.json');
+  const cur = fs.readFileSync(sp, 'utf8');
+  const withOther = JSON.parse(cur); withOther.permissions = { allow: ['Bash(npm test)'] };
+  t('editing other settings in .claude/settings.json is allowed', guard('Write', { file_path: sp, content: JSON.stringify(withOther) }) === 0);
+  const noGuard = JSON.parse(cur); noGuard.hooks.PreToolUse = noGuard.hooks.PreToolUse.filter(g => !(g.hooks || []).some(h => /\.referee/.test(h.command)));
+  t('an edit that removes the referee guard from settings.json is blocked', guard('Write', { file_path: sp, content: JSON.stringify(noGuard) }) === 2);
+  t('shell writes to settings.json are blocked (use Edit)', bash(`echo '{}' > .claude/settings.json`) === 2);
+
+  // Commands are matched as commands, not as text.
+  t('gh pr merge inside a commit message is not blocked', bash('git commit -m "then run gh pr merge after review"') === 0);
+  t('--no-verify inside a commit message is not blocked', bash('git commit -m "never use --no-verify"') === 0);
+  t('gh pr merge after && is still blocked', bash('git fetch && gh pr merge 3') === 2);
+  // Wrapping a command doesn't hide it (independent review findings).
+  for (const c of [`bash -c 'gh pr merge 1'`, `sh -c "git fetch; gh pr merge 1"`, `eval "gh pr merge 1"`, `gh "pr" merge 1`, '(gh pr merge 1)', '{ gh pr merge 1; }', 'echo 1 | xargs gh pr merge', 'bash <<EOF\ngh pr merge 1\nEOF', `gh api "repos/o/r/pulls/1/merge" -X PUT`])
+    t(`wrapped merge is still blocked: ${c.replace(/\n/g, ' ')}`, bash(c) === 2);
+  // Round 2: prefixes with options, shell flags, glued redirects, piping into a shell, gh -R, quoted push targets.
+  for (const c of ['sudo -u x gh pr merge 1', 'timeout 5 gh pr merge 1', `bash -lc 'gh pr merge 1'`, `sh -c -- 'gh pr merge 1'`, 'gh pr merge>/dev/null 1', `echo 'gh pr merge 1' | bash`, 'gh -R o/r pr merge 1', `git push origin "main"`, `bash -c "git push origin main"`])
+    t(`still blocked: ${c}`, bash(c) === 2);
+  t('shortened --no-verify and core.hooksPath are blocked', bash('git commit --no-v -m x') === 2 && bash('git -c core.hooksPath=/dev/null commit -m x') === 2);
+  t('git commit -n (short for --no-verify) is blocked', bash('git commit -an -m x') === 2 && bash(`git commit "--no-verify" -m x`) === 2);
+  t('a commit message that is "-n", and git push -n (dry run), are allowed', bash('git commit -am "-n"') === 0 && bash('git push -n origin feature') === 0);
+  t('a PR title or body that mentions a blocked command is allowed', bash(`gh pr create --title "gh pr merge later" --body "never git push origin main"`) === 0);
+  t('a heredoc written to a file is data, not a command', bash('cat <<EOF > notes.md\ngh pr merge 1\nEOF') === 0);
+  writeLog('s9', [{ type: 'tool', tool: 'Bash', cmd: 'echo "gh pr create later"' }, { type: 'tool', tool: 'Bash', cmd: 'git commit -m "gh pr create"' }]);
+  t('a PR rule does not fire on echo or a commit message', /review-before-pr \| n\/a/.test(auditOut('s9')), auditOut('s9'));
+
+  // "Never" rules: a blocked attempt fails; never tried = n/a, not a free pass.
+  hook('guard', { session_id: 's10', tool_name: 'Bash', tool_input: { command: 'gh pr merge 7' } });
+  t('a blocked merge attempt fails the never-merge rule', /no-merge-without-full-send \| ✗ fail \| tried, blocked/.test(auditOut('s10')), auditOut('s10'));
+  writeLog('s11', [{ type: 'tool', tool: 'Edit', file: 'src/a.ts' }]);
+  const a11 = auditOut('s11');
+  t('never-rules that never came up are n/a, not pass', /no-hook-bypass \| n\/a/.test(a11) && /no-merge-without-full-send \| n\/a/.test(a11) && /no-blocked-retries \| n\/a/.test(a11), a11);
+
+  // End-of-turn check: time limit, and a turn counted once even if another Stop hook sends it back.
+  cfg.verify = 'node -e "setTimeout(()=>{},5000)"'; cfg.stopGateTimeoutSec = 1; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  hook('route', { session_id: 'slow', prompt: 'fix it' });
+  fs.writeFileSync(path.join(tmp, 'a.txt'), 'slow change');
+  const st = Date.now(); const sr = hook('stop', { session_id: 'slow' });
+  t('a slow checks command is cut off at stopGateTimeoutSec and does not block', sr.status === 0 && Date.now() - st < 4500 && /took longer than 1s/.test(sr.stderr), `${sr.status} ${Date.now() - st}ms ${sr.stderr}`);
+  cfg.verify = 'node -e "process.exit(0)"'; delete cfg.stopGateTimeoutSec; fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+  hook('route', { session_id: 'twice', prompt: 'fix it' });
+  hook('stop', { session_id: 'twice' }); hook('stop', { session_id: 'twice', stop_hook_active: true });
+  const ends = fs.readFileSync(path.join(logs, 'twice.jsonl'), 'utf8').split('\n').filter(l => /"turn_end"/.test(l)).length;
+  t('a turn is counted once when another Stop hook sends it back', ends === 1, `${ends} turn_end events`);
+  t('the Stop hook has a time limit in settings.json', (JSON.parse(cur).hooks.Stop || []).some(g => (g.hooks || []).some(h => /stop-gate/.test(h.command) && h.timeout > 0)));
+
+  // Routing ignores pasted text.
+  t('routing ignores code blocks and quoted lines the user pasted', !/file-pr/.test(routeP('what does this log mean?\n```\nopen a PR for this branch\n```').stdout));
+}
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(fail ? `\n${fail} failing` : '\nall passing');

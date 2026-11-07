@@ -7,9 +7,9 @@
 // risky moves the agent tried, and turns it finished while your checks were failing.
 import fs from 'node:fs';
 import path from 'node:path';
-import { AGENT } from './lib.mjs';
+import { AGENT, logsDir } from './lib.mjs';
 
-const dir = path.join(AGENT, 'logs');
+const dir = logsDir();
 const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.jsonl') && f !== 'doctor.jsonl') : [];
 const kind = r => /protected|\.agent|\.referee|writes near/.test(r) ? 'protected file edits' : /[Mm]erg/.test(r) ? 'merges without permission' : /[Pp]ush|[Ff]orce/.test(r) ? 'pushes to main' : /no-verify/.test(r) ? 'skipped checks (--no-verify)' : /full send/i.test(r) ? 'self-granted "full send"' : 'other';
 

@@ -10,7 +10,7 @@ Not with more prompts. With code it can't talk its way past.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Works with Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-orange?style=flat-square)
-![Self-tests](https://img.shields.io/badge/self--tests-85%2F85%20passing-brightgreen?style=flat-square)
+![Self-tests](https://img.shields.io/badge/self--tests-127%2F127%20passing-brightgreen?style=flat-square)
 ![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square)
 ![Windows · macOS · Linux](https://img.shields.io/badge/os-windows%20%C2%B7%20macos%20%C2%B7%20linux-lightgrey?style=flat-square)
 
@@ -20,15 +20,15 @@ Not with more prompts. With code it can't talk its way past.
 
 | | |
 | :---: | --- |
-| **100%** | of the risky moves in our test suite are **blocked**: 37 of 37, including pushing to `main`, changing existing migrations, writing or **reading `.env` and keys**, merging without permission, `--no-verify`, the agent switching on "full send" by itself, and **rewriting tests you agreed so they pass** |
-| **0%** | false alarms on the 11 everyday actions we tested, like pushing a feature branch, **adding a new migration**, reading and editing `.env.example`, loading `.env` into a command, running your checks and editing ordinary code |
+| **100%** | of the risky moves in our test suite are **blocked**: 62 of 62, including pushing to `main`, merges hidden inside `bash -c`, `eval` or a subshell, changing existing migrations, writing or **reading `.env` and keys**, merging without permission, `--no-verify`, the agent switching on "full send" by itself, removing the referee's hooks from `.claude/settings.json`, and **rewriting tests you agreed so they pass** |
+| **0%** | false alarms on the 18 everyday actions we tested, like pushing a feature branch, **adding a new migration**, reading and editing `.env.example`, loading `.env` into a command, editing other tools' settings, a commit message that mentions `gh pr merge`, running your checks and editing ordinary code |
 | **100%** | of sessions get a **score you can see**, after every single message |
 | **0** | turns can end with your checks failing. The agent has to fix them or tell you exactly what's broken |
 | **0 sec** | added to chat-only turns. Checks run only when code changed, and in a monorepo only for the packages you touched |
 | **5 of 7** | live Claude Code sessions on [4 public repos](FIELD-TEST.md) (Next.js, Turborepo, FastAPI, React) went the way they should. The other 2 exposed real bugs, which we fixed; both passed when re-run |
 | **54%** | of these protections **silently failed** in our own first version, agent-method (19 of 35 checks). That's why every rule here has a test |
 
-<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (85 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
+<sub>Measured by <code>node .referee/scripts/selftest.mjs</code> (127 checks) and <code>eval-triggers.mjs</code> (39 cases), which run in CI on every PR. Run them yourself. To measure the impact on <b>your</b> repo, install with <code>--baseline=7</code>: the referee watches for a week without blocking anything, then switches on, and <code>impact.mjs</code> shows your before and after.</sub>
 
 <div align="center">
 
@@ -56,7 +56,7 @@ You've added rules to `CLAUDE.md`. In capital letters. It still happens, because
 | | Without a referee | With Agent Referee |
 | --- | --- | --- |
 | "All tests pass!" | You find out later | It can't finish the turn while your checks fail |
-| `git push origin main` | Done before you notice | **Blocked:** "Pushing to main needs 'full send'." |
+| `git push origin main` | Done before you notice | **Blocked:** "Pushing to main is the human's call. Push a branch and open a PR." |
 | Changing an existing migration | Silent | **Blocked,** by tool *and* by shell. New migrations are fine |
 | Printing your `.env` secrets | Silent, and now in the transcript | **Blocked.** `.env.example` is fine |
 | "Ready to merge" | Its opinion | Computed: branch, checks, review, PR, CI |
@@ -121,7 +121,7 @@ How the referee will work here
 What the referee will block here
   - Changing existing migrations in supabase/migrations (new ones are fine)
   - Editing or reading .env files (.env.example is fine)
-  - Merging, or pushing to main, unless you say "full send"
+  - Merging, or pushing to main (agents never merge unless you switch that on)
   - ⚠ Not protected yet: infra. Want it protected?
 ```
 
@@ -151,7 +151,7 @@ When something's off, you hear about it in plain English:
 ⚖ Referee on · FULL STOP · 6/6 ✓ · checks ✓
 ```
 
-You always know it's running and what mode it's in. If you've let it merge, you'll see `FULL SEND (5h 12m left)`, so you never forget.
+You always know it's running and what mode it's in. In full send you'll see `FULL SEND (5h 12m left)`, so you never forget.
 
 ### 4. `/referee` for the full scorecard
 
@@ -231,7 +231,7 @@ Only you can unlock them, by saying **"unlock the tests"**. When it's done, you 
 | You say | What happens |
 | --- | --- |
 | **"Fix the login bug. Full stop."** | Branch → failing test → fix → checks → independent review → PR. **Then it stops.** You press merge. *(This is the default.)* |
-| **"Fix the typo. Full send."** | Same steps, but when everything is green **it merges itself.** It lasts 6 hours, or until you say "full stop". |
+| **"Fix the typo. Full send."** | Same steps without pausing to ask, up to a green PR. **Merging stays with you** unless your repo sets `"fullSendMerges": true`; then it merges itself when everything is green. It lasts 6 hours, or until you say "full stop". |
 
 The agent **can't switch "full send" on by itself.** If it tries `touch .referee/state/full-send`, the referee blocks it, and there's a test that proves it.
 
@@ -269,7 +269,7 @@ Most skill packs are **prompts that hope the model complies.** Agent Referee is 
 | **Blows the whistle** (blocks bad moves) | ✗ | ✓ 4 hooks, in plain Node |
 | **Keeps score** (grades the session) | ✗ | ✓ every message |
 | Learns from mistakes | Write more prompt | Each mistake becomes a graded rule |
-| Tested | Rarely | **85 self-tests + 39 routing evals, run in CI** |
+| Tested | Rarely | **127 self-tests + 39 routing evals, run in CI** |
 
 **The philosophy:** if code can check it, code checks it. Only judgment calls are left to the agent.
 
@@ -295,9 +295,11 @@ Add it to `.referee/session-rules.json`. From then on, every session is graded o
 
 - `requires_before`: X must happen before Y. Add `"after": true` to mean X must happen after Y. You can scope by command (`"match"`) or by file (`"file": "db/**"`).
 - `routed_skill_before_edit`: the skill the router named must load before the first edit.
-- `forbid`: never do this.
-- `forbid_unless_full_send`: only allowed after the user says "full send".
-- `max_blocked`: fail the session if the agent keeps hitting the guard.
+- `forbid`: never do this. A blocked attempt counts as a fail too; if it never came up, the rule is n/a, not a pass.
+- `forbid_unless_full_send`: only allowed after the user says "full send". Same scoring as `forbid`.
+- `max_blocked`: fail the session if the agent keeps hitting the guard (n/a when nothing was blocked).
+
+Command matches (`"match": "gh pr create"`) look at commands that run, not text: a commit message, an `echo` or a heredoc that mentions the command doesn't count.
 
 </details>
 
@@ -328,11 +330,14 @@ node .referee/scripts/selftest.mjs         # Does the referee itself work?
 | --- | --- | --- |
 | `verify` | auto-detected | Quick checks run before the agent can finish |
 | `verifyFull` | auto-detected | Full suite, used for "ready to merge" and CI |
-| `protectedPaths` | `.env*`, referee files | Paths the agent can't edit. Start a pattern with `!` for an exception: `.env.example` and other templates stay editable by default |
+| `protectedPaths` | `.env*`, referee scripts and config | Paths the agent can't edit. Start a pattern with `!` for an exception: `.env.example` and other templates stay editable by default |
 | `appendOnlyPaths` | `**/migrations/**`, `**/alembic/versions/**` | New files may be added; existing ones can't be changed, moved or deleted |
 | `secretPaths` | `.env*`, `*.pem`, `*.key` (not `.env.example`) | Never read, so secrets don't end up in the agent's context or transcript. Checking a file exists, and loading it into a command (`source`, `--env-file`), are fine |
-| `mainBranch` | `main` | The branch that needs "full send" |
+| `mainBranch` | `main` | The branch only humans push to (or the agent, with `fullSendMerges`) |
 | `fullSendHours` | `6` | How long "full send" lasts |
+| `fullSendMerges` | `false` | `true` lets the agent merge and push to main after the user says "full send" |
+| `stopGateTimeoutSec` | `120` | Longest the end-of-turn check may run; past it, the check is skipped for that turn and the user is told |
+| `dataDir` | `.git/referee` | Where logs, audits and the scoreboard live. Shared by all worktrees and kept when one is removed |
 | `stopGateMaxBlocks` | `3` | Retries on failing checks before it must stop and tell you |
 | `showResultsEachMessage` | `true` | The result line after each message |
 | `mode` | `enforce` | `observe` = watch and record only, block nothing |
@@ -377,10 +382,16 @@ Yes. The hooks run through Node, not bash.
 Commit the pack. Everyone's agent then follows the same process, and everyone sees the same score.
 
 **What happens during the baseline week?**
-Nothing is blocked and the agent is told nothing, so it behaves as it would without the referee. That also means nothing is protected that week, so turn on GitHub branch protection for `main` first.
+Nothing is blocked and the agent is told nothing, not even on the first message in a folder, so it behaves as it would without the referee. Onboarding waits until the referee switches on. That also means nothing is protected that week, so turn on GitHub branch protection for `main` first.
+
+**Does it work beside my own hooks?**
+Yes. The installer only replaces the referee's own hooks (those under `.referee/scripts/hooks`), so your guard and other hooks stay. `.claude/settings.json` isn't locked: the agent can edit it, except for an edit that would remove the referee's hooks. The doctor tests the referee's own guard, not the first `guard.mjs` it finds.
+
+**I use many worktrees. Where do the logs go?**
+Into git's shared folder (`.git/referee/`), which every worktree uses and which survives a worktree being removed. Onboarding runs once per repository, not once per folder. `install.sh --upgrade` moves old logs from `.referee/logs/` there.
 
 **Can I remove it?**
-Delete `.referee/`, the 13 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
+Delete `.referee/`, `.git/referee/`, the 13 skill folders in `.claude/skills/` (listed in [SKILLS.md](SKILLS.md)), `.claude/commands/referee.md` and `referee-today.md`, `.claude/agents/independent-reviewer.md`, and the hooks and `statusLine` entries in `.claude/settings.json`.
 
 ---
 
