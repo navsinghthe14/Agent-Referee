@@ -11,7 +11,6 @@
     ".referee/scripts/**",
     ".referee/state/**",
     ".referee/config.json",
-    ".claude/settings.json",
     "!**/.env.example",
     "!**/.env.sample",
     "!**/.env.template"
@@ -39,5 +38,7 @@
   },
   "maxReviewRounds": 3,
   "fullSendHours": 6,
+  "fullSendMerges": false,
+  "stopGateTimeoutSec": 120,
   "stopGateMaxBlocks": 3
 }

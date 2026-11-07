@@ -10,7 +10,7 @@ There are three ways a skill comes into play, and the code checks all three:
 2. **Its description matches.** Claude Code reads each skill's `description:` and loads the skill itself when the request fits. This is why each description starts with the trigger.
 3. **Another skill calls it.** `ship` calls `writing-plans`, `verification-before-completion`, `review-loop` and `file-pr`, and `review-loop` calls `receiving-code-review`.
 
-Then `.referee/scripts/hooks/log.mjs` records every Skill call, and `.referee/scripts/audit.mjs` grades the session against `.referee/session-rules.json` at the end of each turn. A skill that should have loaded but didn't shows up as `✗` in `.referee/audits/<session>.md`.
+Then `.referee/scripts/hooks/log.mjs` records every Skill call, and `.referee/scripts/audit.mjs` grades the session against `.referee/session-rules.json` at the end of each turn. A skill that should have loaded but didn't shows up as `✗` in `.git/referee/audits/<session>.md` (shared by all worktrees).
 
 ## The flow
 
@@ -26,7 +26,7 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
             ├─▶ verification-before-completion   ◀── stop-gate.mjs runs config.verify
             ├─▶ review-loop ─▶ independent-reviewer agent ─▶ receiving-code-review
             ├─▶ file-pr ─▶ gh pr create
-            └─▶ method.mjs status ─▶ READY → hand over (full stop) or merge (full send)
+            └─▶ method.mjs status ─▶ READY → hand over (merge only with full send + fullSendMerges)
 ```
 
 ## Each skill
@@ -47,8 +47,8 @@ prompt ─▶ route.mjs ─▶ referee-rules (rules + map)
 - **Code behind it:** it describes all four hooks and `method.mjs`.
 
 ### ship
-- **Description:** Use when the user says "full stop" or "full send", or asks you to take a fix or feature end to end. Plan if needed, change, prove, review, PR, CI green; stops for the human unless the user said "full send".
-- **What it does:** owns a task from the branch to a ready PR. In Full Stop mode (the default) it hands over; in Full Send mode it merges once status is green.
+- **Description:** Use when the user says "full stop" or "full send", or asks you to take a fix or feature end to end. Plan if needed, change, prove, review, PR, CI green; then hands over. Merges only if the user said "full send" and the repo allows it.
+- **What it does:** owns a task from the branch to a ready PR. In Full Stop mode (the default) it hands over. In Full Send mode it goes to a green PR without pausing, and merges only if `.referee/config.json` sets `"fullSendMerges": true`.
 - **Router:** `full send`, `full stop`, `ship it`, `take this end to end`.
 - **Code behind it:**
   - `route.mjs` sets `.referee/state/full-send` from the user's message only;

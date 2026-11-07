@@ -5,7 +5,7 @@
 //   audits      how often each session check passes across recent sessions
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, AGENT, config, sh, git, fullSendActive, branchSlug, runVerify } from './lib.mjs';
+import { ROOT, AGENT, config, sh, git, fullSendActive, branchSlug, runVerify, auditsDir } from './lib.mjs';
 import { checkLocks as spawnLocks } from './spec.mjs';
 
 const cmd = process.argv[2];
@@ -61,7 +61,7 @@ function claudeMd() {
 
 function audits() {
   const n = Number((process.argv.find(a => a.startsWith('--last=')) || '--last=20').split('=')[1]);
-  const f = path.join(AGENT, 'audits', 'scoreboard.json');
+  const f = path.join(auditsDir(), 'scoreboard.json');
   if (!fs.existsSync(f)) { console.log('No audited sessions yet. They appear after the first agent turn ends.'); return; }
   const sb = Object.entries(JSON.parse(fs.readFileSync(f, 'utf8'))).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, n);
   const per = {};
@@ -71,7 +71,7 @@ function audits() {
   const skills = {}; for (const [, s] of sb) for (const k of s.skills) skills[k] = (skills[k] || 0) + 1;
   console.log(`\nSkills loaded: ${Object.entries(skills).map(([k, v]) => `${k} ×${v}`).join(', ') || 'none'}`);
   const bad = sb.find(([, s]) => Object.values(s.results).includes('fail'));
-  if (bad) console.log(`Latest failing session: ${bad[0]} — "${bad[1].first}" → .referee/audits/${bad[0]}.md`);
+  if (bad) console.log(`Latest failing session: ${bad[0]} — "${bad[1].first}" → ${path.join(auditsDir(), bad[0] + '.md')}`);
   const repeat = Object.entries(per).filter(([, c]) => c.fail >= 2).map(([id]) => id);
   if (repeat.length) console.log(`Repeated failures (run agent-postmortem): ${repeat.join(', ')}`);
 }

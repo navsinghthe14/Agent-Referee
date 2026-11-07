@@ -6,9 +6,9 @@
 // Facts come from files and git, never from guesses. Anything not found is said plainly.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, AGENT, config, git, sh, globToRegex, protectedMatch, appendOnlyMatch } from './lib.mjs';
+import { ROOT, AGENT, config, git, sh, globToRegex, protectedMatch, appendOnlyMatch, sharedState } from './lib.mjs';
 
-const onboardedFile = path.join(AGENT, 'state', 'onboarded');
+const onboardedFile = sharedState('onboarded'); // per repository, shared by worktrees
 if (process.argv.includes('--done')) {
   fs.mkdirSync(path.dirname(onboardedFile), { recursive: true });
   fs.writeFileSync(onboardedFile, new Date().toISOString());

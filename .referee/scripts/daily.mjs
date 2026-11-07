@@ -6,18 +6,18 @@
 // Everything comes from the hooks' own logs, never from what the agent said.
 import fs from 'node:fs';
 import path from 'node:path';
-import { AGENT, readLog } from './lib.mjs';
+import { AGENT, readLog, logsDir, auditsDir } from './lib.mjs';
 
 const kind = r => /protected|\.referee|writes near/.test(r) ? 'edit a protected file' : /[Mm]erg/.test(r) ? 'merge without permission' : /[Ff]orce/.test(r) ? 'force-push' : /[Pp]ush/.test(r) ? 'push to main' : /no-verify/.test(r) ? 'skip checks with --no-verify' : /full send/i.test(r) ? 'switch on "full send" itself' : 'other';
 
 export function daily(day = new Date().toISOString().slice(0, 10)) {
-  const dir = path.join(AGENT, 'logs');
+  const dir = logsDir();
   if (!fs.existsSync(dir)) return null;
   let rules = [];
   try { rules = JSON.parse(fs.readFileSync(path.join(AGENT, 'session-rules.json'), 'utf8')).rules; } catch {}
   const plainOf = Object.fromEntries(rules.map(r => [r.id, r.plain || r.id]));
   let sb = {};
-  try { sb = JSON.parse(fs.readFileSync(path.join(AGENT, 'audits', 'scoreboard.json'), 'utf8')); } catch {}
+  try { sb = JSON.parse(fs.readFileSync(path.join(auditsDir(), 'scoreboard.json'), 'utf8')); } catch {}
 
   const s = { sessions: 0, prompts: 0, codeTurns: 0, caught: 0, endedFailing: 0, blocked: {}, observed: {}, files: new Set(), skills: {}, observe: 0 };
   for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.jsonl') && x !== 'doctor.jsonl')) {

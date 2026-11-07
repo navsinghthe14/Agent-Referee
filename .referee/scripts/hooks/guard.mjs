@@ -4,10 +4,10 @@
 // obfuscate a shell command. The session audit and human review cover the rest.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, config, readStdin, rel, protectedMatch, appendOnlyMatch, secretMatch, fullSendActive, logEvent, git, effectiveMode, lockedMatch } from '../lib.mjs';
+import { ROOT, config, readStdin, rel, protectedMatch, appendOnlyMatch, secretMatch, fullSendActive, logEvent, git, effectiveMode, lockedMatch, mentionsCommand, skipsHooksAny, segments, dataStripped } from '../lib.mjs';
 
 // Paths whose mere mention in a shell command is blocked (the agent never needs them).
-const STATE_PATTERN = /\.referee[\\/]+state|full-send/;
+const STATE_PATTERN = /\.referee[\\/]+state|full-send|\.git[\\/]+referee\b/;
 // Shell operations that write, move or delete.
 const WRITE_OP = /(?<![0-9&])>|\btee\b|\bsed\s+(?:-\w+\s+)*-\w*i|\bperl\s+-\w*i|\b(?:rm|rmdir|mv|cp|touch|truncate|chmod|chown|ln|unlink|dd|rsync|install|patch)\b|writeFile|appendFile|createWriteStream|open\([^)]*['"][wa]|Set-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item/;
 
@@ -51,6 +51,25 @@ export function pushes(cmd, currentBranch) {
   return out;
 }
 
+// .claude/settings.json holds other tools' hooks too, so it isn't locked. An edit is blocked only if the
+// file would no longer register all four referee hooks (that would switch the referee off).
+const REFEREE_HOOKS = [['UserPromptSubmit', 'route.mjs'], ['PreToolUse', 'guard.mjs'], ['PostToolUse', 'log.mjs'], ['Stop', 'stop-gate.mjs']];
+export function settingsAfter(tool, ti, current) {
+  if (tool === 'Write') return ti.content ?? '';
+  const edits = tool === 'MultiEdit' ? (ti.edits || []) : [ti];
+  let s = current;
+  for (const e of edits) {
+    if (e.old_string == null) return null;
+    s = e.replace_all ? s.split(e.old_string).join(e.new_string ?? '') : s.replace(e.old_string, () => e.new_string ?? '');
+  }
+  return s;
+}
+export function refereeHooksMissing(text) {
+  let j; try { j = JSON.parse(text); } catch { return ['(not valid JSON)']; }
+  const h = j.hooks || {};
+  return REFEREE_HOOKS.filter(([ev, f]) => !(h[ev] || []).some(g => (g.hooks || []).some(k => /\.referee\W+scripts\W+hooks\W/.test(k.command || '') && (k.command || '').includes(f)))).map(([, f]) => f);
+}
+
 if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('guard.mjs')) {
   const raw = await readStdin();
   let input = {}; try { input = JSON.parse(raw || '{}'); } catch {}
@@ -59,11 +78,17 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
   const ti = input.tool_input || {};
   const main = cfg.mainBranch || 'main';
   const fullSend = fullSendActive(cfg);
+  // Merging and pushing to main by the agent is off unless the repo opts in (fullSendMerges: true)
+  // AND the user said "full send". Off by default: it's the riskiest thing the kit could allow.
+  const canMerge = fullSend && cfg.fullSendMerges === true;
+  // (Wording matters: impact.mjs and daily.mjs sort blocks by their reason text.)
+  const mergeHint = cfg.fullSendMerges === true ? 'or the user can say "full send"' : 'agents don\'t merge in this repo (fullSendMerges is off in the referee config)';
+  const pushHint = cfg.fullSendMerges === true ? ', or the user can say "full send"' : '';
 
   const block = (reason) => {
     // Observe mode (the "before" measurement): record what would have been blocked, let it run.
-    if (effectiveMode(cfg) === 'observe') { logEvent(input.session_id, { type: 'would_block', tool, reason }); process.exit(0); }
-    logEvent(input.session_id, { type: 'blocked', tool, reason });
+    if (effectiveMode(cfg) === 'observe') { logEvent(input.session_id, { type: 'would_block', tool, reason, ...(tool === 'Bash' ? { cmd: String(ti.command || '').slice(0, 300) } : {}) }); process.exit(0); }
+    logEvent(input.session_id, { type: 'blocked', tool, reason, ...(tool === 'Bash' ? { cmd: String(ti.command || '').slice(0, 300) } : {}) });
     console.error(`[Referee] Blocked: ${reason}`);
     process.exit(2);
   };
@@ -72,6 +97,12 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
   if (file && process.env.REFEREE_ALLOW_PROTECTED !== '1') {
     const hit = protectedMatch(file, cfg);
     if (hit) block(`${rel(file)} is protected (matches "${hit}" in .referee/config.json). Ask the human to change it.`);
+  }
+  if (file && rel(file) === '.claude/settings.json' && ['Edit', 'MultiEdit', 'Write'].includes(tool) && process.env.REFEREE_ALLOW_PROTECTED !== '1') {
+    let cur = ''; try { cur = fs.readFileSync(path.resolve(ROOT, file), 'utf8'); } catch {}
+    const after = settingsAfter(tool, ti, cur);
+    const gone = after == null ? [] : refereeHooksMissing(after);
+    if (gone.length) block(`This edit to .claude/settings.json would remove the referee's hooks (${gone.join(', ')}). Edit other settings freely, but leave those entries in place.`);
   }
   // Migrations: adding a new one is normal work; changing an existing (applied) one is not.
   if (file && process.env.REFEREE_ALLOW_PROTECTED !== '1' && ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'].includes(tool)) {
@@ -94,10 +125,11 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
   if (tool === 'Bash') {
     const cmd = String(ti.command || '');
     if (STATE_PATTERN.test(cmd)) block('.referee/state is written only by the hooks. "Full send" comes from the user\'s message, not from you.');
-    if (/--no-verify\b/.test(cmd)) block('--no-verify skips the repo\'s checks. Fix the failing check instead.');
+    if (skipsHooksAny(cmd)) block('--no-verify (or git commit -n, or core.hooksPath) skips the repo\'s checks. Fix the failing check instead.');
     if (process.env.REFEREE_ALLOW_PROTECTED !== '1' && WRITE_OP.test(cmd)) {
       const hit = pathTokens(cmd).map(t => [t, protectedMatch(t, cfg)]).find(([, g]) => g);
       if (hit) block(`This command writes near ${rel(hit[0])}, which is protected (matches "${hit[1]}"). Ask the human to change it.`);
+      if (pathTokens(cmd).some(t => rel(t) === '.claude/settings.json')) block('Change .claude/settings.json with the Edit tool, not the shell, so the referee can check its own hooks stay in place.');
     }
     // Existing migrations: no rewriting, moving or deleting from the shell. New files are fine.
     if (process.env.REFEREE_ALLOW_PROTECTED !== '1' && (WRITE_OP.test(cmd) || /\bgit\s+(checkout|restore|rm|mv)\b/.test(cmd))) {
@@ -113,13 +145,15 @@ if (process.env.REFEREE_HOOK === 'guard' || (process.argv[1] || '').endsWith('gu
       const lk = pathTokens(cmd).map(t => lockedMatch(t)).find(Boolean);
       if (lk) block(`This command changes ${lk.file}, which holds tests you agreed with the user (${lk.spec}). Fix the code instead, or ask the user to say "unlock the tests".`);
     }
-    if (/\bgh\s+pr\s+merge\b/.test(cmd) && !fullSend) block('Merging is the human\'s call. Hand over the PR, or the user can say "full send".');
-    if (/\bgh\s+api\b/.test(cmd) && /\/merges?\b/.test(cmd) && !fullSend) block('Merging through the GitHub API is still merging. Hand over the PR, or the user can say "full send".');
+    if (mentionsCommand(cmd, 'gh pr merge') && !canMerge) block(`Merging is the human's call. Hand over the PR; ${mergeHint}.`);
+    if ((segments(cmd).some(cw => cw[0] === 'gh' && cw[1] === 'api' && cw.some(a => /\/merges?\b/.test(a))) || (/\bgh\b[\s\S]*\bapi\b/.test(dataStripped(cmd)) && /\/merges?\b/.test(dataStripped(cmd)))) && !canMerge) block(`Merging through the GitHub API is still merging. Hand over the PR; ${mergeHint}.`);
     const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']) || '';
-    for (const p of pushes(cmd, branch)) {
+    // Pushes read twice: from the raw text and from the parsed commands (quotes removed, bash -c scripts opened).
+    const parsed = segments(cmd).filter(w => w[0] === 'git' && w[1] === 'push').map(w => w.join(' ')).join(' ; ');
+    for (const p of [...pushes(dataStripped(cmd).replace(/["']/g, ''), branch), ...pushes(parsed, branch)]) {
       const toMain = p.all || p.dests.includes(main);
       if (toMain && p.force) block(`Force-pushing ${main} is never allowed.`);
-      if (toMain && !fullSend) block(`Pushing to ${main} needs "full send". Push a branch and open a PR.`);
+      if (toMain && !canMerge) block(`Pushing to ${main} is the human's call. Push a branch and open a PR${pushHint}.`);
     }
   }
   process.exit(0);
